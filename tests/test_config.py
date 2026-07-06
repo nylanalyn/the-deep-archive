@@ -41,6 +41,7 @@ class TestMinimalValidConfig:
         assert config.irc.tls_verify is True
         assert config.irc.sasl is None
         assert config.irc.day_boundary_timezone == "UTC"
+        assert config.irc.actions_per_day == 5
         assert config.db.path == "data/archive.sqlite3"
         assert config.logging.level == "INFO"
         assert config.logging.file is None
@@ -199,6 +200,42 @@ class TestValidation:
         )
         config = load_config(path)
         assert config.irc.day_boundary_timezone == "America/New_York"
+
+    def test_custom_daily_action_limit_accepted(self, tmp_path):
+        path = _write_config(
+            tmp_path,
+            """
+            [irc]
+            server = "x"
+            port = 6697
+            nickname = "a"
+            channel = "#a"
+            actions_per_day = 7
+
+            [db]
+            path = "x.sqlite3"
+            """,
+        )
+        assert load_config(path).irc.actions_per_day == 7
+
+    @pytest.mark.parametrize("value", ["0", "-1", '"five"', "true"])
+    def test_invalid_daily_action_limit_rejected(self, tmp_path, value):
+        path = _write_config(
+            tmp_path,
+            f"""
+            [irc]
+            server = "x"
+            port = 6697
+            nickname = "a"
+            channel = "#a"
+            actions_per_day = {value}
+
+            [db]
+            path = "x.sqlite3"
+            """,
+        )
+        with pytest.raises(ConfigError, match="actions_per_day"):
+            load_config(path)
 
     def test_missing_file_raises(self):
         with pytest.raises((ConfigError, FileNotFoundError)):

@@ -5,6 +5,7 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 
+from deeparchive.actions import DailyActionLedger
 from deeparchive.identity import Player
 
 
@@ -17,6 +18,7 @@ class Profile:
     strength: int
     occultism: int
     scars: tuple[str, ...]
+    actions_remaining: int
 
     @property
     def personnel_status(self) -> str:
@@ -27,8 +29,11 @@ class Profile:
 class ProfileRepository:
     """Read personnel files from a migrated Archive database."""
 
-    def __init__(self, conn: sqlite3.Connection) -> None:
+    def __init__(
+        self, conn: sqlite3.Connection, action_ledger: DailyActionLedger
+    ) -> None:
         self._conn = conn
+        self._action_ledger = action_ledger
 
     def get(self, player: Player) -> Profile:
         row = self._conn.execute(
@@ -49,6 +54,7 @@ class ProfileRepository:
             strength=int(row["strength"]),
             occultism=int(row["occultism"]),
             scars=tuple(str(scar["description"]) for scar in scar_rows),
+            actions_remaining=self._action_ledger.allowance(player.id).remaining,
         )
 
 
@@ -60,6 +66,7 @@ def render_profile(profile: Profile) -> list[str]:
             f"Wit {profile.wit} · Strength {profile.strength} · "
             f"Occultism {profile.occultism}."
         ),
+        f"Actions remaining today: {profile.actions_remaining}.",
     ]
     if profile.scars:
         lines.append(f"Scars: {'; '.join(profile.scars)}")

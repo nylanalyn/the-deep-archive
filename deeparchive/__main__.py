@@ -123,7 +123,13 @@ async def _run(config, conn, content) -> None:
     ``kill`` from the admin surface exits the loop cleanly. pydle handles its
     own reconnection; we only exit on explicit shutdown or fatal error.
     """
-    backend = BotBackend(conn=conn, channel=config.irc.channel, content=content)
+    backend = BotBackend(
+        conn=conn,
+        channel=config.irc.channel,
+        content=content,
+        day_boundary_timezone=config.irc.day_boundary_timezone,
+        actions_per_day=config.irc.actions_per_day,
+    )
     shutdown_event = asyncio.Event()
     # The admin dispatcher is constructed now but not yet reachable from
     # outside the process: the HTTP bridge that discord_admin.py speaks
