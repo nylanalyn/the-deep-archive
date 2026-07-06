@@ -18,6 +18,40 @@ The bot should feel like a calm librarian documenting impossible events.
 - Failure changes the world instead of wasting time.
 - Room progression matters as much as player progression.
 
+## Architecture
+
+The bot is standalone. It owns its IRC connection and runs a pure Python game engine with no IRC dependency in the core logic.
+
+Layers, kept separate:
+- IRC adapter (thin)
+- game engine (pure, testable)
+- persistence (SQLite)
+- content (TOML)
+
+Admin commands flow through the shared Discord router (`discord_admin.py`) via the same HTTP contract other bots use: `POST /v1/command`, `GET /v1/events`. The router is unchanged.
+
+## The Archive & Files
+
+The channel is the Deep Archive: one canonical room.
+
+A File is an expedition. The Archivist opens a File; investigators act on it; it resolves; they return to the Archive.
+
+A File has an internal location (the Stacks, the Catalogue Hall, a reading room) used for atmosphere only. There is no rooms table.
+
+Each File always exists. When one resolves, the next opens immediately.
+
+## Identity
+
+Each investigator is a UUID.
+
+Account is authoritative. When NickServ or SASL provides an account, the investigator is the account.
+
+When no account is present, identity follows the nick. If the bot observes a nick change in channel, it rebinds the new nick to the same investigator.
+
+Unknown nicks with no account become new investigators.
+
+Accounts recover links the bot missed. Pure-nick users do not.
+
 ## Commands
 
 Player:
@@ -75,7 +109,7 @@ Hidden values include:
 - reward table
 - scar table
 
-Files automatically resolve when internal thresholds are reached.
+A File resolves at a fixed number of successes. The count does not scale with room size or player count. If a File resolves quickly, that is fine.
 
 Resolution tiers:
 
@@ -98,6 +132,14 @@ The Archivist narrates this return with short atmospheric text describing the li
 
 The Archive itself slowly changes over time.
 
+## Atmosphere & Voice
+
+The Archivist speaks like a calm librarian documenting impossible events.
+
+Prose comes from a hand-authored library of short fragments, organized by context: Archive returns, File openings, resolution tiers, room weather. The engine composes; it does not generate.
+
+Prefer short lines. Prefer silence over filler. Let gaps do work.
+
 ## Personnel Files
 
 Player profiles contain:
@@ -107,9 +149,13 @@ Player profiles contain:
 - action count
 - completed investigations
 
+Profiles show atmospheric information (titles, scars, relic ties) more than raw numbers, especially for other investigators' profiles.
+
 ## Scars
 
 Scars are permanent trade-offs.
+
+Each scar is a set of stat modifiers: a bonus, a penalty, or both.
 
 Examples:
 - Scales
@@ -117,19 +163,21 @@ Examples:
 - Glass Eye
 - Paper Bones
 
-Scars should make investigators stranger, not simply weaker.
+Scars make investigators stranger, not simply weaker.
 
 ## Shelved Relics
 
-Successful investigations can reward communal relics.
+Relics are communal. They belong to the Archive, not to investigators.
 
-Examples:
+Each File carries theme tags (e.g. darkness, flood, geometry). Each relic names the tags it boosts. While a File with a matching tag is active, every stat check by every investigator gets +1.
+
+Successful investigations can shelve new relics. Relics affect future Files.
+
+Examples of relics:
 - Brass Lantern
 - Choir Register
 - Moth-Eaten Map
 - Black Cabinet
-
-Relics affect future Files.
 
 ## Meta-Arcs
 
@@ -148,3 +196,11 @@ Boss victories permanently enrich the Archive.
 Boss defeats steal relics, alter scars, and return the world to uneasy normality until another arc awakens.
 
 The reveal should surprise players. The bot never announces that a meta-arc has started.
+
+## Admin Surface
+
+Admin commands are out-of-band. They are not player commands and do not count toward the command surface.
+
+Admin reaches the bot through the shared Discord router. The bot exposes `POST /v1/command` and `GET /v1/events`, matching the contract other bots already use.
+
+Admin can: view internal state, force-resolve a stuck File, reload content, quiet the bot.
