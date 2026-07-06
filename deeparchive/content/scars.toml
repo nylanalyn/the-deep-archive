@@ -1,0 +1,37 @@
+# The Deep Archive — Scars.
+#
+# Scars are permanent investigator trade-offs. Each is a set of stat modifiers:
+# a bonus, a penalty, or both. Scars make investigators stranger, not simply
+# weaker (per SPEC).
+#
+# Modifiers are looked up from this file at runtime by scar_key; the DB stores
+# only the key. This is the single source of truth for scar mechanics.
+
+[scars.paper_bones]
+name = "Paper Bones"
+description = "Your bones are thin and dry as old paper."
+modifiers = [
+    { stat = "strength", delta = -1 },
+    { stat = "occultism", delta = 1 },
+]
+
+[scars.glass_eye]
+name = "Glass Eye"
+description = "One eye is cold glass. It sees things the other cannot."
+modifiers = [{ stat = "wit", delta = 1 }]
+
+[scars.scales]
+name = "Scales"
+description = "Fine scales have grown along your forearms. They remember water."
+modifiers = [
+    { stat = "occultism", delta = -1 },
+    { stat = "strength", delta = 1 },
+]
+
+[scars.borrowed_shadow]
+name = "Borrowed Shadow"
+description = "Your shadow is not your own. It moves a half-beat behind you."
+modifiers = [
+    { stat = "wit", delta = 1 },
+    { stat = "occultism", delta = -1 },
+]

@@ -1,0 +1,33 @@
+# The Deep Archive — Relics.
+#
+# Relics are communal. They belong to the Archive, not to investigators. Each
+# relic's effects are a list; MVP carries one effect: stat_bonus, a tag-matched
+# +1 to all checks while a File with a matching tag is active. Later relics may
+# define unique effects without changing the model.
+#
+# A relic's tags are the shorthand its effects inherit (unless an effect
+# declares its own tags).
+
+[relics.brass_lantern]
+name = "Brass Lantern"
+description = "Burns steady in rooms where no flame should hold."
+tags = ["darkness"]
+effects = [{ type = "stat_bonus", amount = 1 }]
+
+[relics.choir_register]
+name = "Choir Register"
+description = "Names the voices that should not be singing."
+tags = ["void"]
+effects = [{ type = "stat_bonus", amount = 1 }]
+
+[relics.moth_eaten_map]
+name = "Moth-Eaten Map"
+description = "Routes through places that no longer exist."
+tags = ["geometry", "flood"]
+effects = [{ type = "stat_bonus", amount = 1 }]
+
+[relics.black_cabinet]
+name = "Black Cabinet"
+description = "Holds what cannot be shelved elsewhere."
+tags = ["void", "geometry"]
+effects = [{ type = "stat_bonus", amount = 1 }]

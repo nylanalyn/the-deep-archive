@@ -1,0 +1,40 @@
+# The Deep Archive — File themes.
+#
+# A theme defines the flavour and mechanical identity of a File. Case
+# generation picks a theme, rolls a title from title_parts, picks a location,
+# and tags the File (tags are what relics respond to).
+#
+# title_parts keys are composed by the generator (Phase 5). Convention:
+#   prefix + noun + optional suffix -> "The Quiet Collapse of Stairwell B"
+# Keep fragments short and evocative; the Archivist speaks plainly.
+
+[themes.darkness]
+name = "Darkness"
+tags = ["darkness", "void"]
+locations = [
+    "the Stacks",
+    "the Catalogue Hall",
+    "a windowless reading room",
+    "the lampless annexe",
+]
+title_parts = { prefix = ["The Quiet", "The Drowned", "The Hollow", "The Last"], noun = ["Lantern", "Vigil", "Stairwell", "Catalogue", "Reading"], suffix = ["of Stairwell B", "in the East Wing", "before Dawn"] }
+
+[themes.flood]
+name = "Flood"
+tags = ["flood", "water"]
+locations = [
+    "the flooded sub-level",
+    "the dripping annexe",
+    "a reading room knee-deep in black water",
+]
+title_parts = { prefix = ["The Rising", "The Sunken", "The Brackish"], noun = ["Tide", "Basement", "Pipe", "Cistern", "Archive"], suffix = ["beneath the Archive", "after the Rains"] }
+
+[themes.geometry]
+name = "Geometry"
+tags = ["geometry", "space"]
+locations = [
+    "a corridor that turns left twice",
+    "the non-Euclidean reading room",
+    "a stairwell with inconsistent steps",
+]
+title_parts = { prefix = ["The Impossible", "The Folded", "The Recursive"], noun = ["Corridor", "Angle", "Room", "Stairwell", "Hall"], suffix = ["behind the Map Room", "that Should Not Be"] }

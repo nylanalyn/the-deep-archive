@@ -1,0 +1,68 @@
+# The Deep Archive — Atmospheric fragments.
+#
+# The Archivist's voice library. Hand-authored, composed by the engine, never
+# generated. Each section maps a key (theme key, tier name, or 'default') to a
+# list of short lines. The engine picks one line at random when it needs prose
+# for that context.
+#
+# Per SPEC: prefer short lines, prefer silence over filler, let gaps do work.
+# Restrained horror, not constant dramatic narration.
+
+[file_openings]
+# Spoken when a File opens, keyed by theme. 'default' is the fallback.
+default = [
+    "A new file lies open on the reading desk.",
+    "The Archivist sets a folder before you, unmarked.",
+    "Another file. The lamp does not flicker, but the room feels thinner.",
+]
+darkness = [
+    "A new file lies open on the reading desk. The lamp gutters.",
+    "The Archivist sets a folder before you. It smells of damp.",
+    "The file is cold to the touch. So is the air around it.",
+]
+flood = [
+    "Water stains creep across the new file's edges.",
+    "The folder drips, though nothing above is wet.",
+    "You hear water before you see the file. The Archivist does not comment.",
+]
+geometry = [
+    "The file lies open at an angle the room does not allow.",
+    "The folder has more pages than its thickness should permit.",
+    "The Archivist sets the file down. It does not sit flat.",
+]
+
+[archive_returns]
+# Spoken when investigators return to the Archive after a File resolves.
+default = [
+    "You return to the Archive. The lamps are still lit.",
+    "The Archivist shelves the closed file without comment.",
+    "The Archive is quiet. So are you.",
+    "You find yourselves back among the shelves. The reading lamp waits.",
+]
+
+[resolution_tiers]
+# Spoken at resolution, by tier. Tiers run worst-to-best.
+disaster = [
+    "The file closes itself. Something has been lost that will not return.",
+    "The Archive is dimmer now. The Archivist says nothing.",
+]
+failure = [
+    "The file is filed away, incomplete. It will not be opened again.",
+    "The Archivist closes the folder slowly. 'Not this time.'",
+]
+mixed_failure = [
+    "The file closes, half-finished. Some questions remain in the dark.",
+    "The Archivist shelves the folder with a glance you cannot read.",
+]
+partial_success = [
+    "The file closes, mostly resolved. One loose thread remains.",
+    "The Archivist marks the folder, then thinks better of it.",
+]
+success = [
+    "The file is complete. The Archivist marks it closed.",
+    "The folder sits finished on the desk. The lamp steadies.",
+]
+clean_success = [
+    "The file closes cleanly. The Archive seems, briefly, at rest.",
+    "The Archivist shelves the folder with something almost like satisfaction.",
+]
