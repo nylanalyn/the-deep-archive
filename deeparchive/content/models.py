@@ -1,10 +1,9 @@
 """Dataclasses modeling the four content domains, with validation.
 
-These are pure shapes — no file loading here (that's Phase 3). Factory
-functions (``ScarDefinition.from_dict`` etc.) are the contract enforcement
-points: they check stat names, reject unknown effect types, and normalize
-tuples. Phase 3's loader parses TOML and calls these factories; Phase 5's
-case generation depends on the typed objects.
+These are pure shapes; file loading lives in :mod:`deeparchive.content.loader`.
+Factory functions (``ScarDefinition.from_dict`` etc.) are the contract
+enforcement points: they check stat names, reject unknown effect types, and
+normalize tuples. Phase 5's case generation depends on the typed objects.
 
 Design notes:
 

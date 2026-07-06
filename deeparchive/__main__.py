@@ -20,6 +20,7 @@ from pathlib import Path
 
 from deeparchive import __version__
 from deeparchive.config import ConfigError, load_config
+from deeparchive.content import ContentError, ContentLoader
 from deeparchive.db.connection import connect
 from deeparchive.db.migrations import migrate
 from deeparchive.irc.admin import AdminCommandDispatcher
@@ -71,6 +72,20 @@ def main(argv: list[str] | None = None) -> int:
     setup_logging(config)
     logger.info("the-deep-archive %s starting up", __version__)
     logger.info("config loaded from %s", config.config_path)
+
+    try:
+        # Phase 3 validates content at startup. The game layer begins consuming
+        # this loader in Phase 5, when File generation is implemented.
+        content = ContentLoader()
+        logger.info(
+            "content loaded: %d themes, %d scars, %d relics",
+            len(content.current.themes),
+            len(content.current.scars),
+            len(content.current.relics),
+        )
+    except ContentError:
+        logger.exception("content validation failed")
+        return 4
 
     # Resolve the DB path relative to the config directory for predictable
     # behaviour regardless of the current working directory.
