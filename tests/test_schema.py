@@ -116,6 +116,12 @@ class TestActiveFile:
         ).fetchone()
         assert row["success_threshold"] == 13
 
+    def test_generated_content_fields_exist(self, conn):
+        columns = {
+            row["name"] for row in conn.execute("PRAGMA table_info(active_file)")
+        }
+        assert {"theme_key", "opening_text"}.issubset(columns)
+
 
 class TestForeignKeys:
     def test_scars_cascade_on_player_delete(self, conn):

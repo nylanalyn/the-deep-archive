@@ -74,8 +74,8 @@ def main(argv: list[str] | None = None) -> int:
     logger.info("config loaded from %s", config.config_path)
 
     try:
-        # Phase 3 validates content at startup. The game layer begins consuming
-        # this loader in Phase 5, when File generation is implemented.
+        # Validate content before opening the database or connecting to IRC.
+        # The loaded pack is passed into the game layer below.
         content = ContentLoader()
         logger.info(
             "content loaded: %d themes, %d scars, %d relics",
@@ -108,7 +108,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     try:
-        asyncio.run(_run(config, conn))
+        asyncio.run(_run(config, conn, content.current))
     except KeyboardInterrupt:
         logger.info("interrupted by user")
     finally:
@@ -116,14 +116,14 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-async def _run(config, conn) -> None:
+async def _run(config, conn, content) -> None:
     """Build the backend, connect the bot, and wait for shutdown.
 
     The shutdown event is shared with the :class:`AdminCommandDispatcher` so
     ``kill`` from the admin surface exits the loop cleanly. pydle handles its
     own reconnection; we only exit on explicit shutdown or fatal error.
     """
-    backend = BotBackend(conn=conn, channel=config.irc.channel)
+    backend = BotBackend(conn=conn, channel=config.irc.channel, content=content)
     shutdown_event = asyncio.Event()
     # The admin dispatcher is constructed now but not yet reachable from
     # outside the process: the HTTP bridge that discord_admin.py speaks

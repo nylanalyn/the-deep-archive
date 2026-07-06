@@ -9,13 +9,20 @@ from __future__ import annotations
 
 import pytest
 
+from deeparchive.content import load_content
 from deeparchive.irc.backend import BotBackend
 from deeparchive.irc.commands import ParsedCommand
+from deeparchive.rng import Rng
 
 
 @pytest.fixture
 def backend(migrated_conn):
-    return BotBackend(conn=migrated_conn, channel="#the-deep-archive")
+    return BotBackend(
+        conn=migrated_conn,
+        channel="#the-deep-archive",
+        content=load_content(),
+        rng=Rng(42),
+    )
 
 
 class TestHandleMessage:
@@ -72,8 +79,18 @@ class TestHandleMessage:
             "Scars: One eye is cold glass.",
         ]
 
-    def test_gameplay_commands_return_stub(self, backend):
-        for cmd in ("!case", "!room", "!investigate", "!interview", "!force", "!ritual"):
+    def test_case_describes_active_file(self, backend):
+        replies = backend.handle_message("alice", None, "!case")
+        assert replies[0].startswith("File: ")
+        assert len(replies) == 2
+
+    def test_case_is_stable(self, backend):
+        first = backend.handle_message("alice", None, "!case")
+        second = backend.handle_message("alice", None, "!case")
+        assert first == second
+
+    def test_unimplemented_gameplay_commands_return_stub(self, backend):
+        for cmd in ("!room", "!investigate", "!interview", "!force", "!ritual"):
             replies = backend.handle_message("alice", None, cmd)
             assert len(replies) == 1
             assert replies[0] == "The Archive is still being catalogued. Check back soon."

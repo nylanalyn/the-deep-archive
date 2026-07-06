@@ -13,9 +13,13 @@ from __future__ import annotations
 
 import logging
 
+from deeparchive.content.models import ContentPack
+from deeparchive.content import load_content
+from deeparchive.files import FileService
 from deeparchive.identity import IdentityResolver, Player
 from deeparchive.irc.commands import ParsedCommand, parse_command
 from deeparchive.profiles import ProfileRepository, render_profile
+from deeparchive.rng import Rng, make_rng
 
 logger = logging.getLogger(__name__)
 
@@ -28,11 +32,20 @@ class BotBackend:
     reply strings; it never writes to the wire itself.
     """
 
-    def __init__(self, conn, channel: str) -> None:
+    def __init__(
+        self,
+        conn,
+        channel: str,
+        content: ContentPack | None = None,
+        rng: Rng | None = None,
+    ) -> None:
         self._conn = conn
         self._channel = channel
         self._resolver = IdentityResolver(conn)
         self._profiles = ProfileRepository(conn)
+        self._files = FileService(conn, content or load_content(), rng or make_rng())
+        # A File always exists, including immediately after a clean startup.
+        self._files.ensure_active()
         # ``quiet`` is set by the admin dispatcher to silence all player-facing
         # output (e.g. during maintenance). The backend still resolves
         # identity and records state; it just returns no replies.
@@ -105,13 +118,17 @@ class BotBackend:
                 return ["No personnel file bears that name."]
         return render_profile(self._profiles.get(target))
 
+    def handle_case(self, player: Player, parsed: ParsedCommand) -> list[str]:
+        """Describe the current File without exposing hidden mechanics."""
+        return self._files.describe_active()
+
     def handle_stub(self, player: Player, parsed: ParsedCommand) -> list[str]:
         """Atmospheric placeholder for gameplay commands not yet built.
 
-        Used for !case, !room, !investigate, !interview, !force, !ritual until
-        their phases ship. The line is deliberately clearly-placeholder so it
-        reads as "under construction" in the Archivist's voice, not as a real
-        piece of fiction.
+        Used for !room, !investigate, !interview, !force, and !ritual until
+        their phases ship. The line is deliberately clearly-placeholder so
+        it reads as "under construction" in the Archivist's voice, not as a
+        real piece of fiction.
         """
         return ["The Archive is still being catalogued. Check back soon."]
 
@@ -164,7 +181,7 @@ class BotBackend:
     # phases will repoint the entry to a real handler.
     _dispatch: dict = {
         "profile": handle_profile,
-        "case": handle_stub,
+        "case": handle_case,
         "room": handle_stub,
         "investigate": handle_stub,
         "interview": handle_stub,
