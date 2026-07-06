@@ -25,10 +25,11 @@ deep-archive = "deeparchive.__main__:main"
 include = ["deeparchive*"]
 
 [tool.setuptools.package-data]
-# Ship the SQL migrations in built wheels, not just editable installs.
-# Without this, importlib.resources finds the files on disk (editable) but
-# a wheel build omits them.
+# Ship non-Python resources in built wheels, not just editable installs.
+# Without these entries, importlib.resources finds the files on disk
+# (editable install) but a wheel build omits them.
 "deeparchive.db.schema" = ["*.sql"]
+"deeparchive.content" = ["*.toml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

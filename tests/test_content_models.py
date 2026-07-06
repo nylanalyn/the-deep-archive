@@ -33,6 +33,16 @@ from deeparchive.content.models import (
 SHIPPED_CONTENT_DIR = Path(__file__).resolve().parent.parent / "deeparchive" / "content"
 
 
+def _minimum_fragments() -> dict:
+    return {
+        "file_openings": {"default": ["A new file."]},
+        "archive_returns": {"default": ["You return."]},
+        "resolution_tiers": {
+            tier: [f"The result is {tier}."] for tier in RESOLUTION_TIERS
+        },
+    }
+
+
 def _load_shipped() -> ContentPack:
     """Load all four shipped TOML files into a ContentPack."""
     domains: dict[str, dict] = {}
@@ -229,6 +239,15 @@ class TestRelicEffect:
                 context="relic x",
             )
 
+    @pytest.mark.parametrize("tag", [1, True, ""])
+    def test_invalid_override_tag_rejected(self, tag):
+        with pytest.raises(ContentError, match="non-empty strings|must be strings"):
+            RelicEffect.from_dict(
+                {"type": "stat_bonus", "amount": 1, "tags": [tag]},
+                parent_tags=("darkness",),
+                context="relic x",
+            )
+
 
 class TestRelicDefinition:
     def test_valid(self):
@@ -251,6 +270,14 @@ class TestRelicDefinition:
             {"name": "N", "description": "d", "effects": []},
         )
         assert relic.tags == ()
+
+    @pytest.mark.parametrize("tag", [1, True, ""])
+    def test_invalid_tag_rejected(self, tag):
+        with pytest.raises(ContentError, match="non-empty strings|must be strings"):
+            RelicDefinition.from_dict(
+                "bad",
+                {"name": "N", "description": "d", "tags": [tag]},
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -278,7 +305,7 @@ class TestThemeDefinition:
         with pytest.raises(ContentError, match="locations must be a non-empty"):
             ThemeDefinition.from_dict(
                 "x",
-                {"name": "X", "tags": [], "locations": [], "title_parts": {"a": ["b"]}},
+                {"name": "X", "tags": [], "locations": [], "title_parts": {"noun": ["b"]}},
             )
 
     def test_empty_title_parts_rejected(self):
@@ -296,7 +323,32 @@ class TestThemeDefinition:
                     "name": "X",
                     "tags": [],
                     "locations": ["a"],
-                    "title_parts": {"prefix": []},
+                    "title_parts": {"noun": []},
+                },
+            )
+
+    def test_title_parts_requires_noun(self):
+        with pytest.raises(ContentError, match="contain a 'noun'"):
+            ThemeDefinition.from_dict(
+                "x",
+                {
+                    "name": "X",
+                    "tags": [],
+                    "locations": ["a"],
+                    "title_parts": {"prefix": ["The Quiet"]},
+                },
+            )
+
+    @pytest.mark.parametrize("tag", [1, True, ""])
+    def test_invalid_tag_rejected(self, tag):
+        with pytest.raises(ContentError, match="non-empty strings|must be strings"):
+            ThemeDefinition.from_dict(
+                "x",
+                {
+                    "name": "X",
+                    "tags": [tag],
+                    "locations": ["a"],
+                    "title_parts": {"noun": ["File"]},
                 },
             )
 
@@ -336,10 +388,10 @@ class TestContentPack:
         # Simulates the loader: each file parsed to its full content.
         pack = ContentPack.from_files(
             {
-                "themes": {"themes": {"darkness": {"name": "Darkness", "tags": [], "locations": ["a"], "title_parts": {"p": ["x"]}}}},
+                "themes": {"themes": {"darkness": {"name": "Darkness", "tags": [], "locations": ["a"], "title_parts": {"noun": ["x"]}}}},
                 "scars": {"scars": {"x": {"name": "X", "description": "d", "modifiers": []}}},
                 "relics": {"relics": {"y": {"name": "Y", "description": "d", "tags": [], "effects": []}}},
-                "fragments": {"file_openings": {"default": ["line"]}},
+                "fragments": _minimum_fragments(),
             }
         )
         assert "darkness" in pack.themes
@@ -351,10 +403,47 @@ class TestContentPack:
         # from_dict takes already-unwrapped domain dicts.
         pack = ContentPack.from_dict(
             {
-                "themes": {"darkness": {"name": "Darkness", "tags": [], "locations": ["a"], "title_parts": {"p": ["x"]}}},
+                "themes": {"darkness": {"name": "Darkness", "tags": [], "locations": ["a"], "title_parts": {"noun": ["x"]}}},
                 "scars": {},
                 "relics": {},
-                "fragments": {},
+                "fragments": _minimum_fragments(),
             }
         )
         assert "darkness" in pack.themes
+
+    @pytest.mark.parametrize(
+        ("mutate", "message"),
+        [
+            (lambda raw: raw["themes"].clear(), "at least one theme"),
+            (
+                lambda raw: raw["fragments"]["file_openings"].pop("default"),
+                "file_openings.default",
+            ),
+            (
+                lambda raw: raw["fragments"]["archive_returns"].pop("default"),
+                "archive_returns.default",
+            ),
+            (
+                lambda raw: raw["fragments"]["resolution_tiers"].pop("failure"),
+                "resolution_tiers missing",
+            ),
+        ],
+    )
+    def test_minimum_viable_pack_required(self, mutate, message):
+        raw = {
+            "themes": {
+                "darkness": {
+                    "name": "Darkness",
+                    "tags": [],
+                    "locations": ["a"],
+                    "title_parts": {"noun": ["File"]},
+                }
+            },
+            "scars": {},
+            "relics": {},
+            "fragments": _minimum_fragments(),
+        }
+        mutate(raw)
+
+        with pytest.raises(ContentError, match=message):
+            ContentPack.from_dict(raw)

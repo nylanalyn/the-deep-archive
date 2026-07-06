@@ -48,6 +48,45 @@ class ContentError(ValueError):
     """Raised when content data is missing, malformed, or references unknown names."""
 
 
+def _parse_string_list(
+    value: Any,
+    context: str,
+    *,
+    field_name: str = "list",
+    non_empty: bool = False,
+) -> tuple[str, ...]:
+    """Parse a TOML list into a tuple of non-empty strings.
+
+    Used for tags, locations, title fragments — any list that should contain
+    only meaningful strings. Rejects non-strings, empty strings, and bools
+    (a Python int subclass footgun: ``true`` would otherwise stringify to
+    ``"True"``). Tags drive mechanics, so we afford them the same strictness
+    as names and descriptions.
+
+    Parameters
+    ----------
+    non_empty:
+        If ``True``, the list itself must contain at least one entry. Use for
+        fields where emptiness is structurally invalid (e.g. locations).
+    """
+    if not isinstance(value, list):
+        raise ContentError(f"{context}: {field_name} must be a list")
+    if non_empty and not value:
+        raise ContentError(f"{context}: {field_name} must be a non-empty list")
+    out: list[str] = []
+    for item in value:
+        if not isinstance(item, str) or isinstance(item, bool):
+            raise ContentError(
+                f"{context}: {field_name} entries must be strings, got {item!r}"
+            )
+        if not item.strip():
+            raise ContentError(
+                f"{context}: {field_name} entries must be non-empty strings"
+            )
+        out.append(item)
+    return tuple(out)
+
+
 # ---------------------------------------------------------------------------
 # Shared
 # ---------------------------------------------------------------------------
@@ -164,10 +203,8 @@ class RelicEffect:
         own_tags = raw.get("tags")
         if own_tags is None:
             tags = parent_tags
-        elif isinstance(own_tags, list):
-            tags = tuple(str(t) for t in own_tags)
         else:
-            raise ContentError(f"{context}: effect.tags must be a list if present")
+            tags = _parse_string_list(own_tags, context, field_name="effect.tags")
         return cls(type=effect_type, amount=amount, tags=tags)
 
 
@@ -191,9 +228,7 @@ class RelicDefinition:
             raise ContentError(f"relic {key!r}: description must be a non-empty string")
 
         raw_tags = raw.get("tags", [])
-        if not isinstance(raw_tags, list):
-            raise ContentError(f"relic {key!r}: tags must be a list")
-        tags = tuple(str(t) for t in raw_tags)
+        tags = _parse_string_list(raw_tags, f"relic {key!r}", field_name="tags")
 
         raw_effects = raw.get("effects", [])
         if not isinstance(raw_effects, list):
@@ -233,29 +268,33 @@ class ThemeDefinition:
             raise ContentError(f"theme {key!r}: name must be a non-empty string")
 
         raw_tags = raw.get("tags", [])
-        if not isinstance(raw_tags, list):
-            raise ContentError(f"theme {key!r}: tags must be a list")
-        tags = tuple(str(t) for t in raw_tags)
+        tags = _parse_string_list(raw_tags, f"theme {key!r}", field_name="tags")
 
         raw_locations = raw.get("locations", [])
-        if not isinstance(raw_locations, list) or not raw_locations:
-            raise ContentError(
-                f"theme {key!r}: locations must be a non-empty list"
-            )
-        locations = tuple(str(loc) for loc in raw_locations)
+        locations = _parse_string_list(
+            raw_locations, f"theme {key!r}", field_name="locations", non_empty=True
+        )
 
         raw_title_parts = raw.get("title_parts", {})
         if not isinstance(raw_title_parts, dict) or not raw_title_parts:
             raise ContentError(
                 f"theme {key!r}: title_parts must be a non-empty table"
             )
+        # The generator (Phase 5) composes a title from prefix + noun + suffix.
+        # ``noun`` is required — without it the generator has nothing to build
+        # around. prefix and suffix are optional embellishments.
+        if "noun" not in raw_title_parts:
+            raise ContentError(
+                f"theme {key!r}: title_parts must contain a 'noun' key"
+            )
         title_parts: dict[str, tuple[str, ...]] = {}
         for part_name, fragments in raw_title_parts.items():
-            if not isinstance(fragments, list) or not fragments:
-                raise ContentError(
-                    f"theme {key!r}: title_parts.{part_name} must be a non-empty list"
-                )
-            title_parts[str(part_name)] = tuple(str(f) for f in fragments)
+            title_parts[str(part_name)] = _parse_string_list(
+                fragments,
+                f"theme {key!r}",
+                field_name=f"title_parts.{part_name}",
+                non_empty=True,
+            )
 
         return cls(
             key=key,
@@ -294,11 +333,12 @@ class FragmentLibrary:
                 )
             parsed: dict[str, tuple[str, ...]] = {}
             for key, lines in section.items():
-                if not isinstance(lines, list) or not lines:
-                    raise ContentError(
-                        f"fragments.{section_name}.{key} must be a non-empty list"
-                    )
-                parsed[str(key)] = tuple(str(line) for line in lines)
+                parsed[str(key)] = _parse_string_list(
+                    lines,
+                    f"fragments.{section_name}.{key}",
+                    field_name="lines",
+                    non_empty=True,
+                )
             return parsed
 
         return cls(
@@ -368,6 +408,32 @@ class ContentPack:
             for key, val in relics_raw.items()
         }
         fragments = FragmentLibrary.from_dict(fragments_raw)
+
+        # Minimum viable pack: the engine cannot open without at least one
+        # theme to generate from, a default file-opening line, a default
+        # archive-return line, and every resolution tier covered. The per-
+        # definition factories stay permissive for isolated tests; the
+        # aggregate enforces what the running Archive actually needs.
+        if not themes:
+            raise ContentError("ContentPack requires at least one theme")
+        if "default" not in fragments.file_openings:
+            raise ContentError(
+                "ContentPack requires fragments.file_openings.default "
+                "(the fallback when a theme has no themed opening)"
+            )
+        if "default" not in fragments.archive_returns:
+            raise ContentError(
+                "ContentPack requires fragments.archive_returns.default"
+            )
+        missing_tiers = [
+            tier
+            for tier in RESOLUTION_TIERS
+            if tier not in fragments.resolution_tiers
+        ]
+        if missing_tiers:
+            raise ContentError(
+                f"ContentPack fragments.resolution_tiers missing: {missing_tiers}"
+            )
 
         return cls(themes=themes, scars=scars, relics=relics, fragments=fragments)
 
