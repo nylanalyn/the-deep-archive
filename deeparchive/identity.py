@@ -271,6 +271,8 @@ class IdentityResolver:
 
     def _create_player(self, nick: str, account: str | None) -> Player:
         player_id = str(uuid.uuid4())
+        # Phase 6 must define whether zero is the intended baseline for checks
+        # or assign an initial stat spread before stat-based actions go live.
         self._conn.execute(
             "INSERT INTO players (id, account, display_nick) VALUES (?, ?, ?)",
             (player_id, account, nick),
