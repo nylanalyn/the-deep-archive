@@ -10,14 +10,10 @@ requires-python = ">=3.12"
 license = { text = "Proprietary" }
 readme = "README.md"
 dependencies = [
-    # pydle is the IRC library used by ircbot_core; deferred to Phase 1.
-    # Listed here so dependency policy is explicit from day one.
+    "pydle>=1.1.0",  # IRC library; same as ircbot_core uses.
 ]
 
 [project.optional-dependencies]
-irc = [
-    "pydle>=1.0",
-]
 dev = [
     "pytest>=8.0",
 ]
