@@ -1,0 +1,129 @@
+"""Tests for the BotBackend — the pure seam between IRC and the game.
+
+These exercise the full inbound path (message -> identity -> routing -> reply)
+without any IRC dependency. The IRC layer is a thin adapter; everything that
+matters is proven here.
+"""
+
+from __future__ import annotations
+
+import pytest
+
+from deeparchive.irc.backend import BotBackend
+from deeparchive.irc.commands import ParsedCommand
+
+
+@pytest.fixture
+def backend(migrated_conn):
+    return BotBackend(conn=migrated_conn, channel="#the-deep-archive")
+
+
+class TestHandleMessage:
+    """The main inbound entry point."""
+
+    def test_non_command_returns_empty(self, backend):
+        assert backend.handle_message("alice", None, "hello there") == []
+
+    def test_profile_returns_stub_line(self, backend):
+        replies = backend.handle_message("alice", None, "!profile")
+        assert len(replies) == 1
+        assert replies[0] == "alice — newly arrived in the Archive."
+
+    def test_profile_uses_display_nick(self, backend):
+        # Resolve with a different nick first to set display_nick.
+        backend.resolve_identity("bob", "bob_acct")
+        # Now seen as bob_away but identified by the same account.
+        replies = backend.handle_message("bob_away", "bob_acct", "!profile")
+        assert replies[0] == "bob_away — newly arrived in the Archive."
+
+    def test_gameplay_commands_return_stub(self, backend):
+        for cmd in ("!case", "!room", "!investigate", "!interview", "!force", "!ritual"):
+            replies = backend.handle_message("alice", None, cmd)
+            assert len(replies) == 1
+            assert replies[0] == "The Archive is still being catalogued. Check back soon."
+
+    def test_unknown_command_gets_atmospheric_reply(self, backend):
+        replies = backend.handle_message("alice", None, "!frobnicate")
+        assert len(replies) == 1
+        assert "does not recognise" in replies[0]
+
+    def test_reserved_command_gets_sealed_reply(self, backend):
+        replies = backend.handle_message("alice", None, "!confront")
+        assert len(replies) == 1
+        assert "Not yet" in replies[0]
+
+    def test_empty_message_returns_empty(self, backend):
+        assert backend.handle_message("alice", None, "") == []
+        assert backend.handle_message("alice", None, "   ") == []
+
+
+class TestIdentityRecordedEvenWhenQuiet:
+    """When quiet, no replies — but identity is still resolved and stored."""
+
+    def test_quiet_silences_replies(self, backend):
+        backend.quiet = True
+        assert backend.handle_message("alice", None, "!profile") == []
+
+    def test_quiet_still_records_identity(self, backend):
+        backend.quiet = True
+        backend.handle_message("alice", None, "!profile")
+        # The investigator was recorded despite silence.
+        assert backend.status()["investigators"] == 1
+
+
+class TestRouteCommand:
+    """Direct routing tests bypassing message parsing."""
+
+    def test_profile_routing(self, backend):
+        player = backend.resolve_identity("alice", None)
+        result = backend.route_command(player, ParsedCommand("profile", "", False))
+        assert result == ["alice — newly arrived in the Archive."]
+
+    def test_unknown_routing(self, backend):
+        player = backend.resolve_identity("alice", None)
+        result = backend.route_command(player, ParsedCommand("frobnicate", "", False))
+        assert len(result) == 1
+        assert "does not recognise" in result[0]
+
+    def test_reserved_routing(self, backend):
+        player = backend.resolve_identity("alice", None)
+        result = backend.route_command(player, ParsedCommand("confront", "", True))
+        assert len(result) == 1
+
+
+class TestStatus:
+    def test_empty_status(self, backend):
+        status = backend.status()
+        assert status["channel"] == "#the-deep-archive"
+        assert status["investigators"] == 0
+        assert status["tracked_nicks"] == 0
+        assert status["quiet"] is False
+
+    def test_status_after_resolves(self, backend):
+        backend.resolve_identity("alice", "alice_acct")
+        backend.resolve_identity("bob", None)
+        backend.resolve_identity("alice_away", "alice_acct")  # same as alice
+        status = backend.status()
+        assert status["investigators"] == 2  # alice + bob
+        # alice, alice_away, bob tracked
+        assert status["tracked_nicks"] == 3
+
+
+class TestIdentityPassthrough:
+    """The backend exposes identity operations for the IRC layer to call."""
+
+    def test_rebind_nick(self, backend):
+        carol = backend.resolve_identity("carol", None)
+        backend.rebind_nick("carol", "carol_away")
+        # Old nick is gone from nick_map; the new nick resolves to the same
+        # player (not a fresh one).
+        again = backend.resolve_identity("carol_away", None)
+        assert again.id == carol.id
+        assert again.display_nick == "carol_away"
+        assert backend.status()["tracked_nicks"] == 1
+
+    def test_update_account(self, backend):
+        backend.resolve_identity("dave", None)
+        backend.update_account("dave", "dave_acct")
+        player = backend.resolve_identity("dave", None)
+        assert player.account == "dave_acct"

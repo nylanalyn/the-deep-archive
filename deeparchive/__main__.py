@@ -1,14 +1,19 @@
 """Entry point: ``python -m deeparchive``.
 
-Phase 0 wires the skeleton end-to-end without IRC: load config, set up logging,
-connect, migrate, and report. The IRC loop arrives in Phase 1; for now this
-proves the foundation holds together and gives operators a way to validate a
-deployment (``python -m deeparchive --check``) before going live.
+Two modes:
+
+- ``--check``: validate config, connect, migrate, report status, exit. Does
+  not connect to IRC. Useful for deployment smoke tests.
+- (default): connect to IRC and run the bot until shutdown.
+
+The run loop mirrors ircbot_core's async pattern: connect the pydle client,
+then await a shutdown event that the admin ``kill`` command (or Ctrl-C) sets.
 """
 
 from __future__ import annotations
 
 import argparse
+import asyncio
 import logging
 import sys
 from pathlib import Path
@@ -16,7 +21,10 @@ from pathlib import Path
 from deeparchive import __version__
 from deeparchive.config import ConfigError, load_config
 from deeparchive.db.connection import connect
-from deeparchive.db.migrations import current_version, migrate
+from deeparchive.db.migrations import migrate
+from deeparchive.irc.admin import AdminCommandDispatcher
+from deeparchive.irc.backend import BotBackend
+from deeparchive.irc.bot import ArchivistBot
 from deeparchive.logging_setup import setup_logging
 
 logger = logging.getLogger("deeparchive.main")
@@ -84,11 +92,39 @@ def main(argv: list[str] | None = None) -> int:
         conn.close()
         return 0
 
-    # Phase 1 will start the IRC loop here. For Phase 0 there is nothing to
-    # keep the process alive, so report and exit cleanly.
-    logger.info("Phase 0 skeleton ready. IRC loop arrives in Phase 1.")
-    conn.close()
+    try:
+        asyncio.run(_run(config, conn))
+    except KeyboardInterrupt:
+        logger.info("interrupted by user")
+    finally:
+        conn.close()
     return 0
+
+
+async def _run(config, conn) -> None:
+    """Build the backend, connect the bot, and wait for shutdown.
+
+    The shutdown event is shared with the :class:`AdminCommandDispatcher` so
+    ``kill`` from the admin surface exits the loop cleanly. pydle handles its
+    own reconnection; we only exit on explicit shutdown or fatal error.
+    """
+    backend = BotBackend(conn=conn, channel=config.irc.channel)
+    shutdown_event = asyncio.Event()
+    # The admin dispatcher is constructed for completeness; the HTTP bridge
+    # in the cross-cutting admin phase will hold the reference and route to it.
+    _admin = AdminCommandDispatcher(backend=backend, shutdown_event=shutdown_event)
+
+    bot = ArchivistBot(config=config, backend=backend)
+    try:
+        await bot.connect()
+        logger.info("bot connected; entering main loop")
+        await shutdown_event.wait()
+    except Exception:
+        logger.exception("bot run loop failed")
+        raise
+    finally:
+        await bot.request_shutdown()
+        logger.info("the-deep-archive shutting down")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,88 @@
+"""Command parsing and the command surface.
+
+This module defines what counts as a player command and how raw PRIVMSG text
+becomes a ``(command, args)`` pair. It is the single source of truth for the
+command surface: the SPEC-mandated player commands, and nothing else.
+
+Per AGENTS.md: never increase the public command count without updating
+SPEC.md. The list below must match SPEC.md's "Commands" section exactly.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+# The canonical player command surface. Keep this in lockstep with SPEC.md.
+# Reserved-for-later commands (!confront) are NOT in here — they are rejected
+# with an atmospheric stub until their phase ships.
+PLAYER_COMMANDS: frozenset[str] = frozenset(
+    {
+        "case",
+        "profile",
+        "room",
+        "investigate",
+        "interview",
+        "force",
+        "ritual",
+    }
+)
+
+# Commands that exist in the design but are intentionally unimplemented. They
+# get a distinct, quieter response so players know they're recognised but
+# sealed, rather than mistyped.
+RESERVED_COMMANDS: frozenset[str] = frozenset({"confront"})
+
+COMMAND_PREFIX = "!"
+
+
+@dataclass(frozen=True, slots=True)
+class ParsedCommand:
+    """A parsed player command, or ``None`` for non-command messages.
+
+    ``name`` is lowercased. ``args`` is the raw text after the command word,
+    stripped of surrounding whitespace (may be empty). The ``reserved`` flag
+    distinguishes "recognised but sealed" from "fully implemented".
+    """
+
+    name: str
+    args: str
+    reserved: bool
+
+
+def parse_command(message: str) -> ParsedCommand | None:
+    """Parse a raw IRC message into a :class:`ParsedCommand`.
+
+    Returns ``None`` when the message is not a command (no ``!`` prefix, or
+    the prefix isn't immediately followed by a known command name).
+
+    Examples:
+        ``!profile``         -> ``ParsedCommand("profile", "", False)``
+        ``!profile alice``   -> ``ParsedCommand("profile", "alice", False)``
+        ``!PROFILE``         -> ``ParsedCommand("profile", "", False)`` (case-insensitive)
+        ``hello``            -> ``None``
+        ``!unknown``         -> ``ParsedCommand("unknown", "", False)`` (routed to unknown handler)
+        ``!confront``        -> ``ParsedCommand("confront", "", True)`` (reserved)
+    """
+    message = message.strip()
+    if not message.startswith(COMMAND_PREFIX):
+        return None
+
+    # Strip the prefix and split into command + remainder. Everything after
+    # the command word is preserved verbatim as args, so subcommands and
+    # free-text arguments survive intact.
+    body = message[len(COMMAND_PREFIX):]
+    if not body:
+        return None
+
+    # Split only on the first run of whitespace so multi-word args stay whole.
+    parts = body.split(maxsplit=1)
+    name = parts[0].lower()
+    args = parts[1].strip() if len(parts) > 1 else ""
+
+    reserved = name in RESERVED_COMMANDS
+    return ParsedCommand(name=name, args=args, reserved=reserved)
+
+
+def is_known_command(name: str) -> bool:
+    """True if ``name`` is a recognised command (player or reserved)."""
+    return name in PLAYER_COMMANDS or name in RESERVED_COMMANDS
