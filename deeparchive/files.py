@@ -111,7 +111,7 @@ class FileRepository:
                 generated.seed,
                 generated.title,
                 generated.location,
-                json.dumps(generated.theme_tags),
+                json.dumps(list(generated.theme_tags)),
                 generated.success_threshold,
                 generated.theme_key,
                 generated.opening_text,
