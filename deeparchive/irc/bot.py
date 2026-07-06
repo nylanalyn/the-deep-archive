@@ -21,6 +21,15 @@ Identity integration relies on pydle's built-in capability negotiation: the
 default ``pydle.Client`` auto-requests ``account-notify``, ``extended-join``,
 and ``account-tag``. We read the account from ``self.users[nick]["account"]``,
 which pydle keeps live from those capabilities.
+
+Live IRC validation checklist (run on first real deployment — these can't be
+unit-tested because they depend on pydle's capability negotiation with a real
+server):
+  - join while identified -> !profile shows the same player across reconnects
+  - log out / log in (account-notify) -> identity persists, account updates
+  - nick change in channel (on_nick_change) -> same investigator, nick rebound
+  - join unidentified, later identify -> update_account links the account
+  - SASL rejection -> bot fails to connect cleanly (no secondary exception)
 """
 
 from __future__ import annotations
@@ -131,7 +140,8 @@ class ArchivistBot(pydle.Client):
 
         We do NOT greet — the SPEC says the bot speaks mostly when spoken to.
         Resolution here just ensures the investigator exists and their account
-        is recorded before their first command.
+        is recorded before their first command. This is deliberate: in this
+        game presence is opting in (see backend.handle_message's policy note).
         """
         if user == self.nickname:
             return

@@ -48,6 +48,14 @@ class BotBackend:
         Returns a list of reply lines (possibly empty). The caller (the IRC
         layer) sends each line to the channel. When ``quiet`` is set, returns
         an empty list regardless of input.
+
+        Policy — identity is resolved for EVERY message, not just commands:
+        this is a dedicated game channel, so presence is opting in. "The
+        Archivist has seen you" means you exist in the Archive, which fits the
+        fiction better than "you don't exist until you speak." If a future
+        deployment sits in a large non-game channel, add an ``activated_at``
+        column via migration and gate player creation on first command. This
+        is a deliberate decision, not an oversight.
         """
         # Always resolve identity — even when quiet, we want the investigator
         # recorded so their presence is known when the bot comes back.

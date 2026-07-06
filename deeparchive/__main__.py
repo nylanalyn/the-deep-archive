@@ -110,20 +110,33 @@ async def _run(config, conn) -> None:
     """
     backend = BotBackend(conn=conn, channel=config.irc.channel)
     shutdown_event = asyncio.Event()
-    # The admin dispatcher is constructed for completeness; the HTTP bridge
-    # in the cross-cutting admin phase will hold the reference and route to it.
+    # The admin dispatcher is constructed now but not yet reachable from
+    # outside the process: the HTTP bridge that discord_admin.py speaks
+    # (/v1/command, /v1/events) arrives in the cross-cutting admin phase.
+    # Until then it exists as an internal seam so Phase 1 has a clean
+    # shutdown path (kill sets shutdown_event above).
     _admin = AdminCommandDispatcher(backend=backend, shutdown_event=shutdown_event)
 
     bot = ArchivistBot(config=config, backend=backend)
+    connected = False
     try:
         await bot.connect()
+        connected = True
         logger.info("bot connected; entering main loop")
         await shutdown_event.wait()
     except Exception:
         logger.exception("bot run loop failed")
         raise
     finally:
-        await bot.request_shutdown()
+        # Only attempt a clean disconnect if we actually connected. If
+        # connect() itself failed (SASL rejection, network error), calling
+        # disconnect() on a half-initialized bot can raise a secondary
+        # exception that masks the real failure.
+        if connected:
+            try:
+                await bot.request_shutdown()
+            except Exception:
+                logger.debug("shutdown did not complete cleanly", exc_info=True)
         logger.info("the-deep-archive shutting down")
 
 

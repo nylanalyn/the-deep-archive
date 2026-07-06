@@ -52,15 +52,17 @@ class ParsedCommand:
 def parse_command(message: str) -> ParsedCommand | None:
     """Parse a raw IRC message into a :class:`ParsedCommand`.
 
-    Returns ``None`` when the message is not a command (no ``!`` prefix, or
-    the prefix isn't immediately followed by a known command name).
+    Returns ``None`` only when the message is not a command at all (no ``!``
+    prefix, or a bare prefix with nothing after it). Unknown command names
+    like ``!frobnicate`` DO return a :class:`ParsedCommand` — the backend
+    decides how to reply (atmospheric "not recognised" line), not the parser.
 
     Examples:
         ``!profile``         -> ``ParsedCommand("profile", "", False)``
         ``!profile alice``   -> ``ParsedCommand("profile", "alice", False)``
         ``!PROFILE``         -> ``ParsedCommand("profile", "", False)`` (case-insensitive)
         ``hello``            -> ``None``
-        ``!unknown``         -> ``ParsedCommand("unknown", "", False)`` (routed to unknown handler)
+        ``!unknown``         -> ``ParsedCommand("unknown", "", False)`` (routed to unknown handler by backend)
         ``!confront``        -> ``ParsedCommand("confront", "", True)`` (reserved)
     """
     message = message.strip()
