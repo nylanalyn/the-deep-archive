@@ -1,0 +1,27 @@
+# The Deep Archive - example configuration.
+# Copy to config.toml and edit. config.toml is gitignored.
+
+[irc]
+server = "irc.example.net"
+port = 6697
+ssl = true
+tls_verify = true
+nickname = "the-archivist"
+username = "the-archivist"
+realname = "the archivist"
+channel = "#the-deep-archive"
+
+[irc.sasl]
+username = "the-archivist"
+password = "${SASL_PASSWORD}"   # set in environment, not here
+
+# Day boundary for daily action reset. Global, single timezone for the bot.
+# Default is UTC. Use an IANA name, e.g. "America/New_York".
+day_boundary_timezone = "UTC"
+
+[db]
+path = "data/archive.sqlite3"
+
+[logging]
+level = "INFO"
+# file = "data/archive.log"

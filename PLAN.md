@@ -38,7 +38,7 @@ Implement:
 - title generation
 - atmospheric descriptions (drawn from the fragment library)
 
-Fixed success threshold per File.
+Fixed hidden success threshold per File, rolled at creation.
 
 ## Phase 6
 Core gameplay.
@@ -48,7 +48,7 @@ Implement:
 - !force (Strength)
 - !ritual (Occultism)
 
-Daily action limits. Default reset at UTC midnight.
+Daily action limits. Reset at the configured day boundary (global timezone, default UTC).
 
 ## Phase 7
 Automatic File resolution.
@@ -61,7 +61,7 @@ Generate:
 
 ## Phase 8
 Relics and scar modifiers take effect.
-Relics grant +1 to all checks during theme-matched Files.
+Relics store effects as a list; resolution applies them by type. MVP implements one effect type: stat_bonus (tag-matched +1).
 Scars apply flat stat deltas to checks.
 
 ## Phase 9

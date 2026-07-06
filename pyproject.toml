@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "the-deep_archive"
+version = "0.1.0"
+description = "The Deep Archive - a persistent IRC anomaly-investigation game"
+requires-python = ">=3.12"
+license = { text = "Proprietary" }
+readme = "README.md"
+dependencies = [
+    # pydle is the IRC library used by ircbot_core; deferred to Phase 1.
+    # Listed here so dependency policy is explicit from day one.
+]
+
+[project.optional-dependencies]
+irc = [
+    "pydle>=1.0",
+]
+dev = [
+    "pytest>=8.0",
+]
+
+[project.scripts]
+deep-archive = "deeparchive.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["deeparchive*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

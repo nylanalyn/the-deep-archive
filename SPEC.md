@@ -79,6 +79,8 @@ Three stats only:
 
 Players receive five actions per day by default.
 
+The day boundary is a single configurable timezone for the whole bot. Default is UTC.
+
 ## Actions
 
 !investigate
@@ -109,7 +111,7 @@ Hidden values include:
 - reward table
 - scar table
 
-A File resolves at a fixed number of successes. The count does not scale with room size or player count. If a File resolves quickly, that is fine.
+Each File receives a fixed hidden success threshold at creation. It does not change based on room size or player count. If a File resolves quickly, that is fine.
 
 Resolution tiers:
 
@@ -169,7 +171,7 @@ Scars make investigators stranger, not simply weaker.
 
 Relics are communal. They belong to the Archive, not to investigators.
 
-Each File carries theme tags (e.g. darkness, flood, geometry). Each relic names the tags it boosts. While a File with a matching tag is active, every stat check by every investigator gets +1.
+Each File carries theme tags (e.g. darkness, flood, geometry). A relic's effects are a list. MVP relics carry one effect: a tag-matched +1 to all checks while a File with a matching tag is active. Later relics may define unique effects without changing the model.
 
 Successful investigations can shelve new relics. Relics affect future Files.
 
