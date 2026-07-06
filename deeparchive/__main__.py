@@ -74,6 +74,8 @@ def main(argv: list[str] | None = None) -> int:
     logger.info("config loaded from %s", config.config_path)
 
     try:
+        # Phase 3 validates content at startup. The game layer begins consuming
+        # this loader in Phase 5, when File generation is implemented.
         content = ContentLoader()
         logger.info(
             "content loaded: %d themes, %d scars, %d relics",
