@@ -1,14 +1,12 @@
 """The pure backend seam between IRC and the game.
 
 The :class:`BotBackend` owns identity resolution, command routing, and the
-minimal player-facing text for Phase 1. It has no dependency on pydle — the
+player-facing command handlers. It has no dependency on pydle — the
 IRC layer calls in with ``(nick, account, message)`` and gets back a list of
 reply strings. This keeps the whole interaction loop unit-testable.
 
-Phase 1 scope: identity + command routing + the ``!profile`` stub. Each
-gameplay command returns a short atmospheric placeholder so the full routing
-path is proven end-to-end without implementing game logic. The placeholders
-are clearly throwaway and will be replaced in their respective phases.
+Gameplay commands not yet implemented return a short atmospheric placeholder
+so the full routing path remains proven end-to-end.
 """
 
 from __future__ import annotations
@@ -17,6 +15,7 @@ import logging
 
 from deeparchive.identity import IdentityResolver, Player
 from deeparchive.irc.commands import ParsedCommand, parse_command
+from deeparchive.profiles import ProfileRepository, render_profile
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +32,7 @@ class BotBackend:
         self._conn = conn
         self._channel = channel
         self._resolver = IdentityResolver(conn)
+        self._profiles = ProfileRepository(conn)
         # ``quiet`` is set by the admin dispatcher to silence all player-facing
         # output (e.g. during maintenance). The backend still resolves
         # identity and records state; it just returns no replies.
@@ -97,13 +97,13 @@ class BotBackend:
     # ------------------------------------------------------------------
 
     def handle_profile(self, player: Player, parsed: ParsedCommand) -> list[str]:
-        """Minimal !profile stub.
-
-        Phase 1 proves identity: nick -> player resolution worked, the player
-        exists, and we can render their identity. No stats, scars, or titles
-        yet — Phase 4 fleshes this out, including [nick] lookup of others.
-        """
-        return [f"{player.display_nick} — newly arrived in the Archive."]
+        """Show the caller's personnel file, or an existing file by nick."""
+        target = player
+        if parsed.args:
+            target = self._resolver.find_by_nick(parsed.args)
+            if target is None:
+                return ["No personnel file bears that name."]
+        return render_profile(self._profiles.get(target))
 
     def handle_stub(self, player: Player, parsed: ParsedCommand) -> list[str]:
         """Atmospheric placeholder for gameplay commands not yet built.

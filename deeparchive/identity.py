@@ -293,3 +293,20 @@ class IdentityResolver:
     def count_tracked_nicks(self) -> int:
         row = self._conn.execute("SELECT COUNT(*) AS n FROM nick_map").fetchone()
         return int(row["n"])
+
+    def find_by_nick(self, nick: str) -> Player | None:
+        """Return an existing investigator by known nick without creating one."""
+        nick = nick.strip()
+        if not nick:
+            return None
+        row = self._conn.execute(
+            "SELECT p.id, p.account, p.display_nick "
+            "FROM nick_map AS n JOIN players AS p ON p.id = n.player_id "
+            "WHERE n.nick = ?",
+            (nick,),
+        ).fetchone()
+        if row is None:
+            return None
+        return Player(
+            id=row["id"], account=row["account"], display_nick=row["display_nick"]
+        )

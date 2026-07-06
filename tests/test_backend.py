@@ -24,17 +24,53 @@ class TestHandleMessage:
     def test_non_command_returns_empty(self, backend):
         assert backend.handle_message("alice", None, "hello there") == []
 
-    def test_profile_returns_stub_line(self, backend):
+    def test_profile_returns_personnel_file(self, backend):
         replies = backend.handle_message("alice", None, "!profile")
-        assert len(replies) == 1
-        assert replies[0] == "alice — newly arrived in the Archive."
+        assert replies == [
+            "Personnel file: alice — Newly Catalogued.",
+            "Wit 0 · Strength 0 · Occultism 0.",
+            "Scars: none recorded.",
+        ]
 
     def test_profile_uses_display_nick(self, backend):
         # Resolve with a different nick first to set display_nick.
         backend.resolve_identity("bob", "bob_acct")
         # Now seen as bob_away but identified by the same account.
         replies = backend.handle_message("bob_away", "bob_acct", "!profile")
-        assert replies[0] == "bob_away — newly arrived in the Archive."
+        assert replies[0] == "Personnel file: bob_away — Newly Catalogued."
+
+    def test_profile_looks_up_another_known_nick(self, backend):
+        backend.handle_message("bob", None, "hello")
+        replies = backend.handle_message("alice", None, "!profile bob")
+        assert replies[0] == "Personnel file: bob — Newly Catalogued."
+
+    def test_profile_lookup_is_case_insensitive(self, backend):
+        backend.handle_message("Bob", None, "hello")
+        replies = backend.handle_message("alice", None, "!profile bOB")
+        assert replies[0] == "Personnel file: Bob — Newly Catalogued."
+
+    def test_unknown_profile_does_not_create_player(self, backend):
+        replies = backend.handle_message("alice", None, "!profile unknown")
+        assert replies == ["No personnel file bears that name."]
+        assert backend.status()["investigators"] == 1
+
+    def test_profile_includes_stats_and_scars(self, backend, migrated_conn):
+        player = backend.resolve_identity("alice", None)
+        migrated_conn.execute(
+            "UPDATE players SET wit = 2, strength = -1, occultism = 1 WHERE id = ?",
+            (player.id,),
+        )
+        migrated_conn.execute(
+            "INSERT INTO scars (player_id, scar_key, description) VALUES (?, ?, ?)",
+            (player.id, "glass_eye", "One eye is cold glass."),
+        )
+        migrated_conn.commit()
+
+        assert backend.handle_message("alice", None, "!profile") == [
+            "Personnel file: alice — Marked Investigator.",
+            "Wit 2 · Strength -1 · Occultism 1.",
+            "Scars: One eye is cold glass.",
+        ]
 
     def test_gameplay_commands_return_stub(self, backend):
         for cmd in ("!case", "!room", "!investigate", "!interview", "!force", "!ritual"):
@@ -77,7 +113,7 @@ class TestRouteCommand:
     def test_profile_routing(self, backend):
         player = backend.resolve_identity("alice", None)
         result = backend.route_command(player, ParsedCommand("profile", "", False))
-        assert result == ["alice — newly arrived in the Archive."]
+        assert result[0] == "Personnel file: alice — Newly Catalogued."
 
     def test_unknown_routing(self, backend):
         player = backend.resolve_identity("alice", None)
