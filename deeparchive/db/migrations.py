@@ -125,58 +125,81 @@ def migrate(
 def _split_sql_statements(sql: str) -> list[str]:
     """Split a migration script into executable statements.
 
-    Splits on ``;`` at the end of statements, ignoring ``;`` inside string
-    literals and ``--`` line comments. Empty/whitespace-only statements are
-    dropped. We deliberately do not support ``/* */`` block comments or
-    semicolons inside string literals in migrations — the shipped schema is
-    plain DDL, and keeping this parser tiny avoids the complexity of a full
-    SQL tokenizer for a job that doesn't need one.
+    A tiny character scanner: splits on ``;`` while ignoring ``;`` inside
+    single- or double-quoted string literals (which may span lines) and
+    inside ``--`` line comments. ``/* */`` block comments are not supported
+    — the shipped schema is plain DDL and doesn't use them.
+
+    Every statement must be terminated by ``;``. Stray non-whitespace text
+    after the final semicolon raises :class:`MigrationError`, because that
+    almost always means a forgotten terminator — silently dropping it was a
+    real bug in an earlier version of this function.
+
+    Multiple statements may share a line; blank/whitespace-only statements
+    are dropped.
     """
     statements: list[str] = []
     current: list[str] = []
     in_string = False
     string_char = ""
 
-    for line in sql.splitlines():
-        # Strip ``--`` comments, but only when not inside a string literal.
-        if not in_string:
-            # Find an unquoted ``--``. A naive split is safe here because
-            # string literals in our migrations never span lines.
-            stripped = line.split("--", 1)[0]
-        else:
-            stripped = line
+    i = 0
+    n = len(sql)
+    while i < n:
+        ch = sql[i]
 
-        # Track single-line string-literal state so a ``;`` inside a string is
-        # not mistaken for a statement terminator. Strings in the shipped DDL
-        # are single-line, so we don't need cross-line tracking.
-        i = 0
-        while i < len(stripped):
-            ch = stripped[i]
-            if ch in ("'", '"'):
-                if in_string and ch == string_char:
-                    in_string = False
-                    string_char = ""
-                elif not in_string:
-                    in_string = True
-                    string_char = ch
+        # Inside a string literal: copy verbatim until the matching quote.
+        # Doubling the quote ('' or "") is the SQL escape, so two in a row
+        # close-and-stay-out rather than ending the string.
+        if in_string:
+            current.append(ch)
+            if ch == string_char:
+                if i + 1 < n and sql[i + 1] == string_char:
+                    current.append(sql[i + 1])
+                    i += 2
+                    continue
+                in_string = False
+                string_char = ""
             i += 1
+            continue
 
-        current.append(stripped)
+        # Not in a string. Detect a line comment: ``--`` runs to end of line.
+        if ch == "-" and i + 1 < n and sql[i + 1] == "-":
+            end = sql.find("\n", i)
+            if end == -1:
+                i = n
+            else:
+                i = end
+            continue
 
-        if ";" in stripped and not in_string:
-            # Everything up to and including the first ``;`` ends a statement.
-            before, _, _ = stripped.partition(";")
-            stmt_lines = current[:-1] + ([before] if before.strip() else [])
-            stmt = "\n".join(stmt_lines).strip()
+        # Not in a string. A quote opens one.
+        if ch in ("'", '"'):
+            in_string = True
+            string_char = ch
+            current.append(ch)
+            i += 1
+            continue
+
+        # Statement terminator outside any string/comment.
+        if ch == ";":
+            stmt = "".join(current).strip()
             if stmt:
                 statements.append(stmt)
             current = []
+            i += 1
+            continue
 
-    # Trailing text without a semicolon (e.g. the last statement) — include
-    # it only if non-empty after stripping.
-    trailing = "\n".join(current).strip()
+        current.append(ch)
+        i += 1
+
+    trailing = "".join(current).strip()
+    # Anything left over is text after the last ``;`` (or the only text, if
+    # there were no semicolons at all). For migrations that's a mistake.
     if trailing:
-        statements.append(trailing)
+        raise MigrationError(
+            "migration has trailing text with no terminating ';': "
+            f"{trailing[:80]!r}..."
+        )
     return statements
 
 
