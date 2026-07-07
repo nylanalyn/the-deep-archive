@@ -36,7 +36,7 @@ class TestHandleMessage:
         replies = backend.handle_message("alice", None, "!profile")
         assert replies == [
             "Personnel file: alice — Newly Catalogued.",
-            "Wit 2 · Strength 0 · Occultism 1.",
+            "Effective: Wit 2 · Strength 0 · Occultism 1.",
             "Actions remaining today: 5.",
             "Background: Archivist · Completed Files: 0.",
             "Scars: none recorded.",
@@ -78,7 +78,7 @@ class TestHandleMessage:
 
         assert backend.handle_message("alice", None, "!profile") == [
             "Personnel file: alice — Marked Investigator.",
-            "Wit 2 · Strength -1 · Occultism 1.",
+            "Effective: Wit 2 · Strength -1 · Occultism 1.",
             "Actions remaining today: 5.",
             "Background: Archivist · Completed Files: 0.",
             "Scars: One eye is cold glass.",

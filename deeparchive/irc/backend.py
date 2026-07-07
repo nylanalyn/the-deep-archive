@@ -25,6 +25,7 @@ from deeparchive.gameplay import ActionName, GameplayService
 from deeparchive.identity import IdentityResolver, Player
 from deeparchive.irc.commands import ParsedCommand, parse_command
 from deeparchive.profiles import ProfileRepository, render_profile
+from deeparchive.modifiers import ModifierService
 from deeparchive.resolution import ResolutionService
 from deeparchive.rng import Rng, make_rng
 
@@ -64,11 +65,14 @@ class BotBackend:
             limit=actions_per_day,
             clock=clock,
         )
-        self._profiles = ProfileRepository(conn, self._actions, content_pack)
+        self._modifiers = ModifierService(conn)
+        self._profiles = ProfileRepository(
+            conn, self._actions, content_pack, self._modifiers
+        )
         self._files = FileService(conn, content_pack, action_rng)
         self._resolution = ResolutionService(conn, content_pack, action_rng)
         self._gameplay = GameplayService(
-            conn, self._actions, action_rng, self._resolution
+            conn, self._actions, action_rng, self._resolution, self._modifiers
         )
         # A File always exists, including immediately after a clean startup.
         self._files.ensure_active()

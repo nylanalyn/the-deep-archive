@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from deeparchive.actions import DailyActionLedger
 from deeparchive.content.models import ContentPack
 from deeparchive.identity import Player
+from deeparchive.modifiers import ModifierService
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,10 +38,12 @@ class ProfileRepository:
         conn: sqlite3.Connection,
         action_ledger: DailyActionLedger,
         content: ContentPack,
+        modifiers: ModifierService,
     ) -> None:
         self._conn = conn
         self._action_ledger = action_ledger
         self._content = content
+        self._modifiers = modifiers
 
     def get(self, player: Player) -> Profile:
         row = self._conn.execute(
@@ -60,9 +63,9 @@ class ProfileRepository:
         background_name = background.name if background is not None else "Unassigned"
         return Profile(
             player=player,
-            wit=int(row["wit"]),
-            strength=int(row["strength"]),
-            occultism=int(row["occultism"]),
+            wit=self._modifiers.effective_stat(player.id, "wit"),
+            strength=self._modifiers.effective_stat(player.id, "strength"),
+            occultism=self._modifiers.effective_stat(player.id, "occultism"),
             scars=tuple(str(scar["description"]) for scar in scar_rows),
             actions_remaining=self._action_ledger.allowance(player.id).remaining,
             background=background_name,
@@ -75,7 +78,7 @@ def render_profile(profile: Profile) -> list[str]:
     lines = [
         f"Personnel file: {profile.player.display_nick} — {profile.personnel_status}.",
         (
-            f"Wit {profile.wit} · Strength {profile.strength} · "
+            f"Effective: Wit {profile.wit} · Strength {profile.strength} · "
             f"Occultism {profile.occultism}."
         ),
         f"Actions remaining today: {profile.actions_remaining}.",
