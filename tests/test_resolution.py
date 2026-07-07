@@ -16,22 +16,28 @@ from deeparchive.rng import Rng
     [
         (0, "clean_success"),
         (1, "success"),
-        (2, "partial_success"),
-        (3, "mixed_failure"),
-        (4, "failure"),
-        (5, "disaster"),
+        (3, "success"),
+        (4, "partial_success"),
+        (7, "mixed_failure"),
+        (10, "failure"),
+        (13, "disaster"),
         (20, "disaster"),
     ],
 )
 def test_resolution_tiers(penalty, tier) -> None:
-    assert resolution_tier(penalty, penalty) == tier
+    assert resolution_tier(penalty, penalty, 15) == tier
+
+
+def test_resolution_tier_rejects_invalid_threshold() -> None:
+    with pytest.raises(ValueError, match="threshold must be positive"):
+        resolution_tier(0, 0, 0)
 
 
 def _ready_file(migrated_conn, *, failures: int = 0):
     content = load_content()
     active = FileService(migrated_conn, content, Rng(1)).ensure_active()
     migrated_conn.execute(
-        "UPDATE active_file SET successes = success_threshold, failures = ?, "
+        "UPDATE active_file SET success_threshold = 15, successes = 15, failures = ?, "
         "danger = ?, theme_tags_json = '[\"darkness\"]' WHERE id = 1",
         (failures, failures),
     )
@@ -65,7 +71,7 @@ def test_clean_resolution_shelves_relic_and_opens_next_file(
 
 
 def test_failure_scars_one_participant(migrated_conn, background_assigner) -> None:
-    content, _ = _ready_file(migrated_conn, failures=4)
+    content, _ = _ready_file(migrated_conn, failures=10)
     resolver = IdentityResolver(migrated_conn, background_assigner)
     players = [resolver.resolve_identity(name, None) for name in ("alice", "bob")]
     migrated_conn.executemany(

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import sqlite3
 from typing import Protocol
 
@@ -19,6 +20,12 @@ class ArchiveFlavourService:
         self._conn = conn
         self._fragments = content.fragments
         self._rng = rng
+        self._relic_names = {
+            key: relic.name for key, relic in content.relics.items()
+        }
+        self._relic_names.update(
+            {arc.reward_key: arc.reward_name for arc in content.meta_arcs.values()}
+        )
 
     def describe(self) -> list[str]:
         relics = self._count("relics")
@@ -32,12 +39,40 @@ class ArchiveFlavourService:
         mood_key = self._mood_key()
         if mood_key not in self._fragments.room_moods:
             mood_key = "default"
-        return [
+        lines = [
             self._rng.choice(self._fragments.archive_descriptions[description_key]),
             self._rng.choice(self._fragments.room_weather["default"]),
             self._rng.choice(self._fragments.room_moods[mood_key]),
             self._history_line(completed, relics, scars),
         ]
+        lines.extend(self._relic_lines())
+        return lines
+
+    def _relic_lines(self) -> list[str]:
+        lines: list[str] = []
+        rows = self._conn.execute(
+            "SELECT relic_key, description, effects_json FROM relics ORDER BY id"
+        )
+        for row in rows:
+            key = str(row["relic_key"])
+            name = self._relic_names.get(key, key.replace("_", " ").title())
+            effects = json.loads(row["effects_json"])
+            descriptions: list[str] = []
+            for effect in effects:
+                if not isinstance(effect, dict) or effect.get("type") != "stat_bonus":
+                    continue
+                amount = effect.get("amount")
+                tags = effect.get("tags", [])
+                if isinstance(amount, int) and isinstance(tags, list):
+                    tag_text = " or ".join(str(tag) for tag in tags)
+                    descriptions.append(
+                        f"{amount:+d} to stat checks during {tag_text} Files"
+                    )
+            effect_text = "; ".join(descriptions) or "no active effect recorded"
+            lines.append(
+                f"Relic: {name} — {row['description']} Effect: {effect_text}."
+            )
+        return lines
 
     def _count(self, table: str) -> int:
         # Table names are internal constants at each call site, never user input.

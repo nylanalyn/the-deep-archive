@@ -127,6 +127,32 @@ class TestActiveFile:
         }
         assert {"theme_key", "opening_text", "is_sealed", "arc_key"}.issubset(columns)
 
+    @pytest.mark.parametrize(
+        ("sealed", "starting_threshold", "expected"),
+        [(0, 3, 17), (1, 5, 18), (0, 16, 16)],
+    )
+    def test_live_pacing_migration_preserves_or_extends_active_file(
+        self, conn, sealed, starting_threshold, expected
+    ):
+        conn.execute(
+            "INSERT INTO active_file "
+            "(id, seed, title, location, success_threshold, is_sealed) "
+            "VALUES (1, 1, 'T', 'L', ?, ?)",
+            (starting_threshold, sealed),
+        )
+        migration = (
+            Path(__file__).resolve().parents[1]
+            / "deeparchive"
+            / "db"
+            / "schema"
+            / "0005_rebalance_file_thresholds.sql"
+        )
+        conn.executescript(migration.read_text(encoding="utf-8"))
+        threshold = conn.execute(
+            "SELECT success_threshold FROM active_file WHERE id = 1"
+        ).fetchone()[0]
+        assert threshold == expected
+
 
 class TestForeignKeys:
     def test_scars_cascade_on_player_delete(self, conn):
