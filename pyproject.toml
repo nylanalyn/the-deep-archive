@@ -10,7 +10,9 @@ requires-python = ">=3.12"
 license = { text = "Proprietary" }
 readme = "README.md"
 dependencies = [
-    "pydle>=1.1.0",  # IRC library; same as ircbot_core uses.
+    # The sasl extra installs pure-sasl, which pydle requires before it will
+    # initiate authentication when SASL credentials are configured.
+    "pydle[sasl]>=1.1.0",
 ]
 
 [project.optional-dependencies]
