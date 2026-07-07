@@ -23,6 +23,7 @@ def backend(migrated_conn):
         content=load_content(),
         rng=Rng(42),
         background_rng=Rng(42),
+        flavour_rng=Rng(42),
     )
 
 
@@ -76,8 +77,13 @@ class TestHandleMessage:
         )
         migrated_conn.commit()
 
-        assert backend.handle_message("alice", None, "!profile") == [
-            "Personnel file: alice — Marked Investigator.",
+        profile = backend.handle_message("alice", None, "!profile")
+        assert profile[0].startswith("Personnel file: alice — ")
+        assert profile[0].removesuffix(".").split(" — ")[1] in {
+            "Marked Investigator",
+            "Reader in Altered Condition",
+        }
+        assert profile[1:] == [
             "Effective: Wit 2 · Strength -1 · Occultism 1.",
             "Actions remaining today: 5.",
             "Background: Archivist · Completed Files: 0.",
@@ -94,9 +100,10 @@ class TestHandleMessage:
         second = backend.handle_message("alice", None, "!case")
         assert first == second
 
-    def test_room_remains_stub(self, backend):
+    def test_room_describes_archive(self, backend):
         replies = backend.handle_message("alice", None, "!room")
-        assert replies == ["The Archive is still being catalogued. Check back soon."]
+        assert len(replies) == 4
+        assert "closed Files rest" in replies[-1]
 
     @pytest.mark.parametrize("command", ["investigate", "interview", "force", "ritual"])
     def test_action_commands_are_live(self, backend, command):

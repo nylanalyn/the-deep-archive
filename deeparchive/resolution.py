@@ -85,7 +85,8 @@ class ResolutionService:
             nick, definition = scar
             lines.append(f"The personnel file for {nick} is amended: {definition.name}.")
 
-        lines.append(self._rng.choice(self._content.fragments.archive_returns["default"]))
+        return_key = self._return_key(tier)
+        lines.append(self._rng.choice(self._content.fragments.archive_returns[return_key]))
         self._conn.execute("DELETE FROM active_file_participants")
         self._conn.execute("DELETE FROM active_file WHERE id = 1")
         next_file = self._generator.generate()
@@ -102,6 +103,19 @@ class ResolutionService:
             next_file=next_file,
             lines=tuple(lines),
         )
+
+    def _return_key(self, tier: str) -> str:
+        if tier in {"clean_success", "success"}:
+            key = "success"
+        elif tier in {"mixed_failure", "failure"}:
+            key = "failure"
+        elif tier == "disaster":
+            key = "disaster"
+        else:
+            key = "default"
+        if key not in self._content.fragments.archive_returns:
+            return "default"
+        return key
 
     def _award_relic(
         self, tier: str, theme_tags: list[str], history_id: int

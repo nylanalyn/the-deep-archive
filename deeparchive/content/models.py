@@ -360,6 +360,10 @@ class FragmentLibrary:
     file_openings: dict[str, tuple[str, ...]] = field(default_factory=dict)
     archive_returns: dict[str, tuple[str, ...]] = field(default_factory=dict)
     resolution_tiers: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    archive_descriptions: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    room_weather: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    room_moods: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    personnel_titles: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "FragmentLibrary":
@@ -383,6 +387,10 @@ class FragmentLibrary:
             file_openings=parse_section("file_openings"),
             archive_returns=parse_section("archive_returns"),
             resolution_tiers=parse_section("resolution_tiers"),
+            archive_descriptions=parse_section("archive_descriptions"),
+            room_weather=parse_section("room_weather"),
+            room_moods=parse_section("room_moods"),
+            personnel_titles=parse_section("personnel_titles"),
         )
 
 
@@ -473,6 +481,24 @@ class ContentPack:
         if "default" not in fragments.archive_returns:
             raise ContentError(
                 "ContentPack requires fragments.archive_returns.default"
+            )
+        for section_name, section in (
+            ("archive_descriptions", fragments.archive_descriptions),
+            ("room_weather", fragments.room_weather),
+            ("room_moods", fragments.room_moods),
+        ):
+            if "default" not in section:
+                raise ContentError(
+                    f"ContentPack requires fragments.{section_name}.default"
+                )
+        missing_titles = [
+            key
+            for key in ("new", "active", "veteran", "marked")
+            if key not in fragments.personnel_titles
+        ]
+        if missing_titles:
+            raise ContentError(
+                f"ContentPack fragments.personnel_titles missing: {missing_titles}"
             )
         missing_tiers = [
             tier

@@ -22,6 +22,7 @@ from deeparchive.content.models import ContentPack
 from deeparchive.content import load_content
 from deeparchive.files import FileService
 from deeparchive.gameplay import ActionName, GameplayService
+from deeparchive.flavour import ArchiveFlavourService
 from deeparchive.identity import IdentityResolver, Player
 from deeparchive.irc.commands import ParsedCommand, parse_command
 from deeparchive.profiles import ProfileRepository, render_profile
@@ -50,6 +51,7 @@ class BotBackend:
         actions_per_day: int = 5,
         clock: Callable[[], datetime] | None = None,
         background_rng: Rng | None = None,
+        flavour_rng: Rng | None = None,
     ) -> None:
         self._conn = conn
         self._channel = channel
@@ -71,6 +73,9 @@ class BotBackend:
         )
         self._files = FileService(conn, content_pack, action_rng)
         self._resolution = ResolutionService(conn, content_pack, action_rng)
+        self._flavour = ArchiveFlavourService(
+            conn, content_pack, flavour_rng or make_rng()
+        )
         self._gameplay = GameplayService(
             conn, self._actions, action_rng, self._resolution, self._modifiers
         )
@@ -157,12 +162,14 @@ class BotBackend:
         action = cast(ActionName, parsed.name)
         return self._gameplay.render(self._gameplay.perform(player, action))
 
+    def handle_room(self, player: Player, parsed: ParsedCommand) -> list[str]:
+        """Describe the Archive and the history it has accumulated."""
+        return self._flavour.describe()
+
     def handle_stub(self, player: Player, parsed: ParsedCommand) -> list[str]:
         """Atmospheric placeholder for gameplay commands not yet built.
 
-        Used for !room until its Archive-flavour phase ships. The line is
-        deliberately clearly-placeholder so it reads as "under construction"
-        in the Archivist's voice, not as a real piece of fiction.
+        Retained as the routing seam for future commands.
         """
         return ["The Archive is still being catalogued. Check back soon."]
 
@@ -216,7 +223,7 @@ class BotBackend:
     _dispatch: dict = {
         "profile": handle_profile,
         "case": handle_case,
-        "room": handle_stub,
+        "room": handle_room,
         "investigate": handle_action,
         "interview": handle_action,
         "force": handle_action,

@@ -53,6 +53,7 @@ def test_clean_resolution_shelves_relic_and_opens_next_file(
     migrated_conn.execute("COMMIT")
 
     assert outcome is not None and outcome.tier == "clean_success"
+    assert outcome.lines[-3] in content.fragments.archive_returns["success"]
     assert outcome.next_file.title != old.title or outcome.next_file.seed != old.seed
     assert migrated_conn.execute("SELECT COUNT(*) FROM file_history").fetchone()[0] == 1
     assert migrated_conn.execute("SELECT COUNT(*) FROM relics").fetchone()[0] == 1
@@ -77,6 +78,7 @@ def test_failure_scars_one_participant(migrated_conn, background_assigner) -> No
     migrated_conn.execute("COMMIT")
 
     assert outcome is not None and outcome.tier == "failure"
+    assert outcome.lines[-3] in content.fragments.archive_returns["failure"]
     assert migrated_conn.execute("SELECT COUNT(*) FROM scars").fetchone()[0] == 1
     completed = migrated_conn.execute(
         "SELECT SUM(completed_files) FROM players"
