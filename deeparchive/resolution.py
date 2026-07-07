@@ -15,9 +15,15 @@ REWARD_TIERS = frozenset({"partial_success", "success", "clean_success"})
 SCAR_TIERS = frozenset({"disaster", "failure", "mixed_failure"})
 
 
-def resolution_tier(failures: int, danger: int) -> str:
-    """Map accumulated consequences to one of the six ordered tiers."""
+def resolution_tier(failures: int, danger: int, threshold: int = 5) -> str:
+    """Map consequences to a tier relative to the File's required progress."""
+    if threshold < 1:
+        raise ValueError("resolution threshold must be positive")
     penalty = max(failures, danger)
+    # Normalize to the original five-step consequence scale. Longer Files can
+    # absorb proportionally more failed actions without becoming automatic
+    # disasters merely because they took longer to investigate.
+    scaled_penalty = (penalty * 5 + threshold - 1) // threshold
     return (
         "clean_success",
         "success",
@@ -25,7 +31,7 @@ def resolution_tier(failures: int, danger: int) -> str:
         "mixed_failure",
         "failure",
         "disaster",
-    )[min(penalty, 5)]
+    )[min(scaled_penalty, 5)]
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,7 +72,11 @@ class ResolutionService:
         if is_sealed and not allow_sealed:
             return None
 
-        tier = resolution_tier(int(row["failures"]), int(row["danger"]))
+        tier = resolution_tier(
+            int(row["failures"]),
+            int(row["danger"]),
+            int(row["success_threshold"]),
+        )
         cursor = self._conn.execute(
             "INSERT INTO file_history "
             "(title, location, theme_tags_json, success_threshold, successes, "

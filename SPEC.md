@@ -111,7 +111,10 @@ Hidden values include:
 - reward table
 - scar table
 
-Each File receives a fixed hidden success threshold at creation. It does not change based on room size or player count. If a File resolves quickly, that is fine.
+Each File receives a fixed hidden success threshold at creation. It does not
+change based on room size or player count. Thresholds are tuned so a few active
+investigators will usually carry a File across more than one daily allowance,
+though exceptional luck can still close one sooner.
 
 Resolution tiers:
 

@@ -9,8 +9,8 @@ from dataclasses import dataclass
 from deeparchive.content.models import ContentPack, ThemeDefinition
 from deeparchive.rng import Rng
 
-MIN_SUCCESS_THRESHOLD = 3
-MAX_SUCCESS_THRESHOLD = 6
+MIN_SUCCESS_THRESHOLD = 14
+MAX_SUCCESS_THRESHOLD = 20
 
 
 @dataclass(frozen=True, slots=True)

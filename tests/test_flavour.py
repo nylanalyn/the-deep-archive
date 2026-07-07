@@ -32,8 +32,24 @@ def test_room_uses_reliquary_and_unsettled_variants(migrated_conn) -> None:
     lines = ArchiveFlavourService(migrated_conn, content, Rng(2)).describe()
     assert lines[0] in content.fragments.archive_descriptions["reliquary"]
     assert lines[2] in content.fragments.room_moods["unsettled"]
-    assert "1 closed File rests" in lines[-1]
-    assert "1 relic is shelved" in lines[-1]
+    assert any("1 closed File rests" in line for line in lines)
+    assert any("1 relic is shelved" in line for line in lines)
+
+
+def test_room_lists_relic_name_description_and_effect(migrated_conn) -> None:
+    migrated_conn.execute(
+        "INSERT INTO relics (relic_key, description, effects_json) VALUES "
+        "('moth_eaten_map', 'Routes through places that no longer exist.', "
+        "'[{\"type\":\"stat_bonus\",\"amount\":1,"
+        "\"tags\":[\"geometry\",\"flood\"]}]')"
+    )
+    lines = ArchiveFlavourService(
+        migrated_conn, load_content(), Rng(1)
+    ).describe()
+    assert lines[-1] == (
+        "Relic: Moth-Eaten Map — Routes through places that no longer exist. "
+        "Effect: +1 to stat checks during geometry or flood Files."
+    )
 
 
 def test_personnel_title_is_stable() -> None:
