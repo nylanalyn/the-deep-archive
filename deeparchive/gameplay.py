@@ -27,6 +27,8 @@ class ActionOutcome:
     success: bool | None
     remaining_actions: int
     resolution: ResolutionOutcome | None = None
+    blocked_message: str | None = None
+    confront_unlocked: bool = False
 
 
 _ACTION_STATS: dict[ActionName, str | None] = {
@@ -79,6 +81,18 @@ class GameplayService:
                 remaining = self._ledger.allowance(player.id).remaining
                 self._conn.execute("COMMIT")
                 return ActionOutcome(action, None, remaining, ready)
+            if self._resolution.awaiting_confrontation():
+                remaining = self._ledger.allowance(player.id).remaining
+                self._conn.execute("ROLLBACK")
+                return ActionOutcome(
+                    action,
+                    None,
+                    remaining,
+                    blocked_message=(
+                        "The Sealed File is ready. The Archivist unlocks the final "
+                        "leaf: !confront."
+                    ),
+                )
             allowance = self._ledger.consume(player.id)
             if allowance is None:
                 self._conn.execute("ROLLBACK")
@@ -102,6 +116,7 @@ class GameplayService:
                 (player.id,),
             )
             resolution = self._resolution.resolve_if_ready()
+            confront_unlocked = self._resolution.awaiting_confrontation()
             self._conn.execute("COMMIT")
         except Exception:
             if self._conn.in_transaction:
@@ -113,6 +128,7 @@ class GameplayService:
             success=success,
             remaining_actions=allowance.remaining,
             resolution=resolution,
+            confront_unlocked=confront_unlocked,
         )
 
     def _roll(self, player: Player, action: ActionName) -> bool:
@@ -126,6 +142,8 @@ class GameplayService:
     def render(outcome: ActionOutcome | None) -> list[str]:
         if outcome is None:
             return ["Your allowance is spent. Return after the day turns."]
+        if outcome.blocked_message is not None:
+            return [outcome.blocked_message]
         if outcome.success is None:
             if outcome.resolution is None:
                 raise RuntimeError("resolution guard produced no resolution")
@@ -139,4 +157,8 @@ class GameplayService:
         lines = [f"{text} {outcome.remaining_actions} {noun} remain today."]
         if outcome.resolution is not None:
             lines.extend(outcome.resolution.lines)
+        elif outcome.confront_unlocked:
+            lines.append(
+                "The Sealed File's final leaf unlocks. The Archive permits: !confront."
+            )
         return lines

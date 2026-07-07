@@ -13,8 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 # The canonical player command surface. Keep this in lockstep with SPEC.md.
-# Reserved-for-later commands (!confront) are NOT in here — they are rejected
-# with an atmospheric stub until their phase ships.
+# Context-gated commands (!confront) are not in the ordinary command set.
 PLAYER_COMMANDS: frozenset[str] = frozenset(
     {
         "case",
@@ -27,9 +26,8 @@ PLAYER_COMMANDS: frozenset[str] = frozenset(
     }
 )
 
-# Commands that exist in the design but are intentionally unimplemented. They
-# get a distinct, quieter response so players know they're recognised but
-# sealed, rather than mistyped.
+# Commands recognized outside the ordinary surface. ``!confront`` is routed
+# only when a Sealed File exists and otherwise receives a quiet refusal.
 RESERVED_COMMANDS: frozenset[str] = frozenset({"confront"})
 
 COMMAND_PREFIX = "!"

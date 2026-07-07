@@ -63,8 +63,8 @@ Player:
 - !force
 - !ritual
 
-Reserved for later:
-- !confront (boss/meta files only)
+Sealed Files only:
+- !confront
 
 No !joincase.
 No !assist.
@@ -183,15 +183,13 @@ Examples of relics:
 
 ## Meta-Arcs
 
-Initially disabled during MVP.
-
-Later:
-- Cases quietly begin sharing themes.
-- Endings include subtle recurring hints.
-- The Archive notices the pattern.
-- Hidden counter reaches threshold.
+Meta-arcs remain hidden until their pattern becomes visible:
+- Files quietly share recurring themes.
+- Endings include subtle cross-references.
+- A hidden counter reaches its threshold.
 - A Sealed File is revealed.
-- Boss confrontation unlocks via !confront.
+- Investigators gather evidence through normal actions.
+- The final confrontation unlocks via !confront.
 
 Boss victories permanently enrich the Archive.
 

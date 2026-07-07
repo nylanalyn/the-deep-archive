@@ -125,7 +125,7 @@ class TestActiveFile:
         columns = {
             row["name"] for row in conn.execute("PRAGMA table_info(active_file)")
         }
-        assert {"theme_key", "opening_text"}.issubset(columns)
+        assert {"theme_key", "opening_text", "is_sealed", "arc_key"}.issubset(columns)
 
 
 class TestForeignKeys:

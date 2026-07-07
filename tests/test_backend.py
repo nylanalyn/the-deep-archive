@@ -100,6 +100,13 @@ class TestHandleMessage:
         second = backend.handle_message("alice", None, "!case")
         assert first == second
 
+    def test_case_labels_sealed_file(self, backend, migrated_conn):
+        migrated_conn.execute("UPDATE active_file SET is_sealed = 1 WHERE id = 1")
+        migrated_conn.commit()
+        assert backend.handle_message("alice", None, "!case")[0].startswith(
+            "Sealed File:"
+        )
+
     def test_room_describes_archive(self, backend):
         replies = backend.handle_message("alice", None, "!room")
         assert len(replies) == 4
@@ -131,10 +138,40 @@ class TestHandleMessage:
         assert len(replies) == 1
         assert "does not recognise" in replies[0]
 
-    def test_reserved_command_gets_sealed_reply(self, backend):
+    def test_confront_without_sealed_file_is_quietly_rejected(self, backend):
         replies = backend.handle_message("alice", None, "!confront")
-        assert len(replies) == 1
-        assert "Not yet" in replies[0]
+        assert replies == ["The Archive holds no Sealed File for confrontation."]
+
+    def test_ready_sealed_file_blocks_normal_actions_without_cost(
+        self, backend, migrated_conn
+    ):
+        migrated_conn.execute(
+            "UPDATE active_file SET is_sealed = 1, arc_key = 'black_index', "
+            "successes = success_threshold WHERE id = 1"
+        )
+        migrated_conn.commit()
+        replies = backend.handle_message("alice", None, "!investigate")
+        assert replies == [
+            "The Sealed File is ready. The Archivist unlocks the final leaf: !confront."
+        ]
+        assert "Actions remaining today: 5." in backend.handle_message(
+            "alice", None, "!profile"
+        )
+
+    def test_crossing_sealed_threshold_unlocks_confront(
+        self, backend, migrated_conn
+    ):
+        player = backend.resolve_identity("alice", None)
+        migrated_conn.execute(
+            "UPDATE active_file SET is_sealed = 1, arc_key = 'black_index', "
+            "success_threshold = 1, successes = 0 WHERE id = 1"
+        )
+        migrated_conn.execute(
+            "UPDATE players SET wit = 10 WHERE id = ?", (player.id,)
+        )
+        migrated_conn.commit()
+        replies = backend.handle_message("alice", None, "!interview")
+        assert any("permits: !confront" in line for line in replies)
 
     def test_empty_message_returns_empty(self, backend):
         assert backend.handle_message("alice", None, "") == []
