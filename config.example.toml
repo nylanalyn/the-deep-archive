@@ -11,15 +11,15 @@ username = "the-archivist"
 realname = "the archivist"
 channel = "#the-deep-archive"
 
-[irc.sasl]
-username = "the-archivist"
-password = "${SASL_PASSWORD}"   # set in environment, not here
-
 # Day boundary for daily action reset. Global, single timezone for the bot.
 # Default is UTC. Use an IANA name, e.g. "America/New_York".
 day_boundary_timezone = "UTC"
 # Per-investigator action allowance for each Archive day.
 actions_per_day = 5
+
+[irc.sasl]
+username = "the-archivist"
+password = "${SASL_PASSWORD}"   # set in environment, not here
 
 [db]
 path = "data/archive.sqlite3"
