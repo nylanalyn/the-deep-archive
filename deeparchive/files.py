@@ -26,6 +26,8 @@ class ActiveFile:
     failures: int
     danger: int
     clue_count: int
+    is_sealed: bool = False
+    arc_key: str | None = None
 
 
 class FileGenerator:
@@ -60,6 +62,8 @@ class FileGenerator:
             failures=0,
             danger=0,
             clue_count=0,
+            is_sealed=False,
+            arc_key=None,
         )
 
     @staticmethod
@@ -99,6 +103,8 @@ class FileRepository:
             failures=int(row["failures"]),
             danger=int(row["danger"]),
             clue_count=int(row["clue_count"]),
+            is_sealed=bool(row["is_sealed"]),
+            arc_key=str(row["arc_key"]) if row["arc_key"] is not None else None,
         )
 
     def create_if_absent(self, generated: ActiveFile) -> ActiveFile:
@@ -106,7 +112,8 @@ class FileRepository:
         self._conn.execute(
             "INSERT OR IGNORE INTO active_file "
             "(id, seed, title, location, theme_tags_json, success_threshold, "
-            "theme_key, opening_text) VALUES (1, ?, ?, ?, ?, ?, ?, ?)",
+            "theme_key, opening_text, is_sealed, arc_key) "
+            "VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 generated.seed,
                 generated.title,
@@ -115,6 +122,8 @@ class FileRepository:
                 generated.success_threshold,
                 generated.theme_key,
                 generated.opening_text,
+                int(generated.is_sealed),
+                generated.arc_key,
             ),
         )
         self._conn.commit()
@@ -140,6 +149,7 @@ class FileService:
     def describe_active(self) -> list[str]:
         active = self.ensure_active()
         return [
-            f"File: {active.title} — {active.location}.",
+            f"{'Sealed File' if active.is_sealed else 'File'}: "
+            f"{active.title} — {active.location}.",
             active.opening_text,
         ]

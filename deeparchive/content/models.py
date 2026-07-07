@@ -160,6 +160,58 @@ class BackgroundDefinition:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class MetaArcDefinition:
+    """A hidden recurring pattern that culminates in a Sealed File."""
+
+    key: str
+    name: str
+    theme_key: str
+    trigger_count: int
+    title: str
+    location: str
+    opening: str
+    tags: tuple[str, ...]
+    threshold: int
+    reward_key: str
+    reward_name: str
+    reward_description: str
+    hints: tuple[str, ...]
+
+    @classmethod
+    def from_dict(cls, key: str, raw: dict[str, Any]) -> "MetaArcDefinition":
+        string_fields = (
+            "name", "theme_key", "title", "location", "opening",
+            "reward_key", "reward_name", "reward_description",
+        )
+        values: dict[str, str] = {}
+        for field_name in string_fields:
+            value = raw.get(field_name)
+            if not isinstance(value, str) or not value:
+                raise ContentError(
+                    f"meta arc {key!r}: {field_name} must be a non-empty string"
+                )
+            values[field_name] = value
+        trigger = raw.get("trigger_count")
+        threshold = raw.get("threshold")
+        if not isinstance(trigger, int) or isinstance(trigger, bool) or trigger < 1:
+            raise ContentError(f"meta arc {key!r}: trigger_count must be positive")
+        if not isinstance(threshold, int) or isinstance(threshold, bool) or threshold < 1:
+            raise ContentError(f"meta arc {key!r}: threshold must be positive")
+        tags = _parse_string_list(raw.get("tags", []), f"meta arc {key!r}", non_empty=True)
+        hints = _parse_string_list(
+            raw.get("hints", []), f"meta arc {key!r}", field_name="hints", non_empty=True
+        )
+        return cls(
+            key=key,
+            trigger_count=trigger,
+            threshold=threshold,
+            tags=tags,
+            hints=hints,
+            **values,
+        )
+
+
 # ---------------------------------------------------------------------------
 # Scars
 # ---------------------------------------------------------------------------
@@ -407,6 +459,7 @@ class ContentPack:
     scars: dict[str, ScarDefinition]
     relics: dict[str, RelicDefinition]
     backgrounds: dict[str, BackgroundDefinition]
+    meta_arcs: dict[str, MetaArcDefinition]
     fragments: FragmentLibrary
 
     @classmethod
@@ -433,6 +486,7 @@ class ContentPack:
         scars_raw = raw.get("scars", {})
         relics_raw = raw.get("relics", {})
         backgrounds_raw = raw.get("backgrounds", {})
+        meta_arcs_raw = raw.get("meta_arcs", {})
         fragments_raw = raw.get("fragments", {})
 
         if not isinstance(themes_raw, dict):
@@ -443,6 +497,8 @@ class ContentPack:
             raise ContentError("relics must be a table")
         if not isinstance(backgrounds_raw, dict):
             raise ContentError("backgrounds must be a table")
+        if not isinstance(meta_arcs_raw, dict):
+            raise ContentError("meta_arcs must be a table")
         if not isinstance(fragments_raw, dict):
             raise ContentError("fragments must be a table")
 
@@ -462,6 +518,10 @@ class ContentPack:
             key: BackgroundDefinition.from_dict(key, val)
             for key, val in backgrounds_raw.items()
         }
+        meta_arcs = {
+            key: MetaArcDefinition.from_dict(key, val)
+            for key, val in meta_arcs_raw.items()
+        }
         fragments = FragmentLibrary.from_dict(fragments_raw)
 
         # Minimum viable pack: the engine cannot open without at least one
@@ -473,6 +533,11 @@ class ContentPack:
             raise ContentError("ContentPack requires at least one theme")
         if not backgrounds:
             raise ContentError("ContentPack requires at least one background")
+        for arc in meta_arcs.values():
+            if arc.theme_key not in themes:
+                raise ContentError(
+                    f"meta arc {arc.key!r} references unknown theme {arc.theme_key!r}"
+                )
         if "default" not in fragments.file_openings:
             raise ContentError(
                 "ContentPack requires fragments.file_openings.default "
@@ -515,6 +580,7 @@ class ContentPack:
             scars=scars,
             relics=relics,
             backgrounds=backgrounds,
+            meta_arcs=meta_arcs,
             fragments=fragments,
         )
 

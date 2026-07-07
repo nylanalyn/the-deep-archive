@@ -9,6 +9,7 @@ Each domain is one TOML file:
 - scars.toml     — permanent investigator trade-offs
 - relics.toml    — communal relics with effect lists
 - backgrounds.toml — weighted investigator backgrounds and starting stats
+- meta_arcs.toml — hidden recurring patterns and Sealed File rewards
 - fragments.toml — hand-authored atmospheric prose
 """
 

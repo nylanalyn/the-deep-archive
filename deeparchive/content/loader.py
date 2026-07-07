@@ -14,6 +14,7 @@ CONTENT_DOMAINS: tuple[str, ...] = (
     "scars",
     "relics",
     "backgrounds",
+    "meta_arcs",
     "fragments",
 )
 

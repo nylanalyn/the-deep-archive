@@ -20,6 +20,7 @@ from deeparchive.actions import DailyActionLedger
 from deeparchive.backgrounds import BackgroundAssigner
 from deeparchive.content.models import ContentPack
 from deeparchive.content import load_content
+from deeparchive.confrontation import ConfrontationService
 from deeparchive.files import FileService
 from deeparchive.gameplay import ActionName, GameplayService
 from deeparchive.flavour import ArchiveFlavourService
@@ -79,6 +80,9 @@ class BotBackend:
         self._gameplay = GameplayService(
             conn, self._actions, action_rng, self._resolution, self._modifiers
         )
+        self._confrontation = ConfrontationService(
+            conn, self._actions, self._modifiers, self._resolution, action_rng
+        )
         # A File always exists, including immediately after a clean startup.
         self._files.ensure_active()
         # ``quiet`` is set by the admin dispatcher to silence all player-facing
@@ -128,7 +132,7 @@ class BotBackend:
         distinct sealed response. Unknown commands get a short atmospheric
         "not understood" line. No path raises — the bot never errors visibly.
         """
-        if parsed.reserved:
+        if parsed.reserved and parsed.name != "confront":
             return [self._reserved_reply(parsed.name)]
 
         handler = self._dispatch.get(parsed.name)
@@ -165,6 +169,10 @@ class BotBackend:
     def handle_room(self, player: Player, parsed: ParsedCommand) -> list[str]:
         """Describe the Archive and the history it has accumulated."""
         return self._flavour.describe()
+
+    def handle_confront(self, player: Player, parsed: ParsedCommand) -> list[str]:
+        """Attempt the final check on a ready Sealed File."""
+        return self._confrontation.confront(player)
 
     def handle_stub(self, player: Player, parsed: ParsedCommand) -> list[str]:
         """Atmospheric placeholder for gameplay commands not yet built.
@@ -228,4 +236,5 @@ class BotBackend:
         "interview": handle_action,
         "force": handle_action,
         "ritual": handle_action,
+        "confront": handle_confront,
     }
