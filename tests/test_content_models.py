@@ -40,6 +40,15 @@ def _minimum_fragments() -> dict:
         "resolution_tiers": {
             tier: [f"The result is {tier}."] for tier in RESOLUTION_TIERS
         },
+        "archive_descriptions": {"default": ["Shelves."]},
+        "room_weather": {"default": ["Rain."]},
+        "room_moods": {"default": ["Quiet."]},
+        "personnel_titles": {
+            "new": ["New"],
+            "active": ["Active"],
+            "veteran": ["Veteran"],
+            "marked": ["Marked"],
+        },
     }
 
 
@@ -95,6 +104,15 @@ class TestShippedContent:
                 f"fragment library missing resolution tier {tier!r}"
             )
             assert len(pack.fragments.resolution_tiers[tier]) > 0
+
+    def test_archive_flavour_sections_are_shipped(self):
+        fragments = _load_shipped().fragments
+        assert fragments.archive_descriptions["default"]
+        assert fragments.room_weather["default"]
+        assert fragments.room_moods["default"]
+        assert {"new", "active", "veteran", "marked"}.issubset(
+            fragments.personnel_titles
+        )
 
     def test_fragment_openings_cover_all_themes(self):
         # Every shipped theme should have at least a 'default' fallback, and

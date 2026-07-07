@@ -39,6 +39,60 @@ default = [
     "The Archive is quiet. So are you.",
     "You find yourselves back among the shelves. The reading lamp waits.",
 ]
+success = [
+    "You return to the Archive. A space has already been cleared on the shelf.",
+    "The reading-room lamps seem warmer when you return.",
+]
+failure = [
+    "You return to the Archive. One lamp has gone out.",
+    "The Archivist receives the unfinished record without reproach.",
+]
+disaster = [
+    "You return to the Archive, though the shelves do not seem to recognize you.",
+    "The doors close behind you. Somewhere below, a catalogue drawer opens.",
+]
+
+[archive_descriptions]
+default = [
+    "The Deep Archive extends beyond the reach of its reading lamps.",
+    "Shelves rise into shadow. The catalogue waits in ordered silence.",
+    "The reading room is exactly where you left it. One chair is not.",
+    "Dust rests on the long tables except where a folder was recently moved.",
+]
+reliquary = [
+    "The Archive keeps its recovered relics behind glass that reflects no faces.",
+    "A locked cabinet stands among the shelves. Its contents have earned their silence.",
+]
+
+[room_weather]
+default = [
+    "Rain traces the high windows, though the forecast was clear.",
+    "A dry wind moves between shelves that have no windows.",
+    "Fog presses faintly against the glass above the Stacks.",
+    "The weather beyond the windows is the color of old paper.",
+]
+
+[room_moods]
+default = [
+    "The lamps are steady. The eastern aisle is not.",
+    "No bells have rung for several hours. This is unusual.",
+    "A book cart waits at the end of an aisle no one has entered.",
+    "The catalogue drawers are closed. One of them is breathing.",
+]
+settled = [
+    "The lamps burn evenly. For now, the shelves appear content.",
+    "The catalogue rests in good order. The Archivist does not mention this.",
+]
+unsettled = [
+    "The lamps have been turned low since the last File was shelved.",
+    "Several books have shifted spine-inward. No one admits to touching them.",
+]
+
+[personnel_titles]
+new = ["Newly Catalogued"]
+active = ["Field Investigator", "Known Reader"]
+veteran = ["Senior Investigator", "Keeper of Closed Files"]
+marked = ["Marked Investigator", "Reader in Altered Condition"]
 
 [resolution_tiers]
 # Spoken at resolution, by tier. Tiers run worst-to-best.

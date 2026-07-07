@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from deeparchive.actions import DailyActionLedger
 from deeparchive.content.models import ContentPack
 from deeparchive.identity import Player
+from deeparchive.flavour import personnel_title
 from deeparchive.modifiers import ModifierService
 
 
@@ -23,11 +24,7 @@ class Profile:
     actions_remaining: int
     background: str
     completed_files: int
-
-    @property
-    def personnel_status(self) -> str:
-        """A restrained display title derived from the available record."""
-        return "Marked Investigator" if self.scars else "Newly Catalogued"
+    title: str
 
 
 class ProfileRepository:
@@ -61,22 +58,27 @@ class ProfileRepository:
         ).fetchall()
         background = self._content.backgrounds.get(str(row["background_key"]))
         background_name = background.name if background is not None else "Unassigned"
+        scars = tuple(str(scar["description"]) for scar in scar_rows)
+        completed_files = int(row["completed_files"])
         return Profile(
             player=player,
             wit=self._modifiers.effective_stat(player.id, "wit"),
             strength=self._modifiers.effective_stat(player.id, "strength"),
             occultism=self._modifiers.effective_stat(player.id, "occultism"),
-            scars=tuple(str(scar["description"]) for scar in scar_rows),
+            scars=scars,
             actions_remaining=self._action_ledger.allowance(player.id).remaining,
             background=background_name,
-            completed_files=int(row["completed_files"]),
+            completed_files=completed_files,
+            title=personnel_title(
+                self._content, player.id, completed_files, bool(scars)
+            ),
         )
 
 
 def render_profile(profile: Profile) -> list[str]:
     """Render a short personnel file suitable for IRC lines."""
     lines = [
-        f"Personnel file: {profile.player.display_nick} — {profile.personnel_status}.",
+        f"Personnel file: {profile.player.display_nick} — {profile.title}.",
         (
             f"Effective: Wit {profile.wit} · Strength {profile.strength} · "
             f"Occultism {profile.occultism}."
