@@ -114,3 +114,28 @@ def test_unknown_stat_is_rejected(migrated_conn, background_assigner) -> None:
     player, modifiers = _player_and_modifiers(migrated_conn, background_assigner)
     with pytest.raises(ValueError, match="unknown stat"):
         modifiers.effective_stat(player.id, "luck")
+
+
+def test_malformed_scar_modifier_has_contextual_error(
+    migrated_conn, background_assigner
+) -> None:
+    player, modifiers = _player_and_modifiers(migrated_conn, background_assigner)
+    migrated_conn.execute(
+        "INSERT INTO scars (player_id, scar_key, modifiers_json, description) "
+        "VALUES (?, 'broken', '[1]', 'broken')",
+        (player.id,),
+    )
+    with pytest.raises(ValueError, match="scar modifier must be an object"):
+        modifiers.effective_stat(player.id, "wit")
+
+
+def test_malformed_relic_effect_has_contextual_error(
+    migrated_conn, background_assigner
+) -> None:
+    player, modifiers = _player_and_modifiers(migrated_conn, background_assigner)
+    migrated_conn.execute(
+        "INSERT INTO relics (relic_key, effects_json, description) "
+        "VALUES ('broken', '[1]', 'broken')"
+    )
+    with pytest.raises(ValueError, match="relic effect must be an object"):
+        modifiers.effective_stat(player.id, "wit")

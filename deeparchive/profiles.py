@@ -78,7 +78,7 @@ def render_profile(profile: Profile) -> list[str]:
     lines = [
         f"Personnel file: {profile.player.display_nick} — {profile.personnel_status}.",
         (
-            f"Wit {profile.wit} · Strength {profile.strength} · "
+            f"Effective: Wit {profile.wit} · Strength {profile.strength} · "
             f"Occultism {profile.occultism}."
         ),
         f"Actions remaining today: {profile.actions_remaining}.",

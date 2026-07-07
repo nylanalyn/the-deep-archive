@@ -47,6 +47,8 @@ class ModifierService:
             if not isinstance(modifiers, list):
                 raise ValueError("scars.modifiers_json must be a list")
             for modifier in modifiers:
+                if not isinstance(modifier, dict):
+                    raise ValueError("scar modifier must be an object")
                 if modifier.get("stat") == stat:
                     delta = modifier.get("delta")
                     if not isinstance(delta, int) or isinstance(delta, bool):
@@ -67,6 +69,8 @@ class ModifierService:
             if not isinstance(effects, list):
                 raise ValueError("relics.effects_json must be a list")
             for effect in effects:
+                if not isinstance(effect, dict):
+                    raise ValueError("relic effect must be an object")
                 if effect.get("type") != "stat_bonus":
                     continue
                 tags = effect.get("tags", [])
