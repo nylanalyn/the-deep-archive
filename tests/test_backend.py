@@ -24,6 +24,7 @@ def backend(migrated_conn):
         rng=Rng(42),
         background_rng=Rng(42),
         flavour_rng=Rng(42),
+        action_flavour_rng=Rng(42),
     )
 
 
@@ -131,8 +132,15 @@ class TestHandleMessage:
     @pytest.mark.parametrize("command", ["investigate", "interview", "force", "ritual"])
     def test_action_commands_are_live(self, backend, command):
         replies = backend.handle_message("alice", None, f"!{command}")
-        assert len(replies) == 1
-        assert "remain today" in replies[0]
+        assert len(replies) == 2
+        assert replies[0].startswith("You ")
+        assert replies[1].startswith(("SUCCESS —", "FAILURE —"))
+        assert "remain today" in replies[1]
+
+    def test_only_action_outcome_line_is_delayed(self, backend):
+        assert backend.reply_delay("!interview", 0) == 0
+        assert backend.reply_delay("!interview", 1) == 1.5
+        assert backend.reply_delay("!profile", 1) == 0
 
     def test_profile_reflects_consumed_action(self, backend):
         backend.handle_message("alice", None, "!investigate")

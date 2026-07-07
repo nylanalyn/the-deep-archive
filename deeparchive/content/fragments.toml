@@ -94,6 +94,36 @@ active = ["Field Investigator", "Known Reader"]
 veteran = ["Senior Investigator", "Keeper of Closed Files"]
 marked = ["Marked Investigator", "Reader in Altered Condition"]
 
+[action_verbs]
+investigate = ["search", "trace", "compare", "reconstruct", "follow"]
+interview = ["question", "seek testimony from", "compare accounts with", "press", "speak quietly with"]
+force = ["pry open", "break through", "drag aside", "hold shut", "wrench loose"]
+ritual = ["inscribe a ward around", "burn a careful offering before", "invoke the name beneath", "draw a circle around", "recite the old catalogue over"]
+
+[action_targets]
+investigate = ["the water-stained accession records", "a sequence of misfiled photographs", "the notes left by a missing clerk", "an aisle omitted from the floor plan", "the dust beneath the evidence cabinet"]
+interview = ["the night porter", "a witness who refuses to sit", "the residents of the condemned boarding house", "a retired cataloguer", "the constable assigned to the first disappearance"]
+force = ["the swollen archive door", "a cabinet sealed with black wax", "the collapsed service passage", "a book cart lodged against the stairwell", "the chained door beneath the reading room"]
+ritual = ["the unnumbered threshold", "a page written in iron ink", "the object recovered from the east wing", "the name erased from the register", "the cold space inside the circle"]
+
+[action_methods]
+investigate = ["under a failing desk lamp", "while the ink is still changing", "against records that insist nothing happened", "before the trail goes cold", "with the oldest catalogue as your guide"]
+interview = ["away from listening walls", "with the Archivist recording every omission", "before their account changes again", "over untouched cups of tea", "in the narrow light of the reading room"]
+force = ["with measured pressure", "before the hinges remember they are locked", "while something pushes from the other side", "using a length of shelving as leverage", "despite the warning scratched into the frame"]
+ritual = ["by lamplight", "without speaking the final word", "as the shelves settle around you", "using thread taken from the File", "while the Archive keeps count"]
+
+[action_successes]
+investigate = ["A hidden correspondence becomes clear.", "The evidence yields a usable trail.", "A missing interval in the record is finally accounted for.", "The catalogue reveals where the File was altered.", "You recover a detail someone worked hard to erase."]
+interview = ["The witness gives you the one detail they meant to withhold.", "Their contradictions resolve into a useful account.", "A name and location survive comparison with the Archive's records.", "The testimony confirms the pattern.", "The witness remembers what happened after they stopped remembering."]
+force = ["The obstruction yields and the way beyond is exposed.", "The seal breaks without damaging what it protected.", "You hold the passage long enough for the evidence to be recovered.", "The mechanism gives up its hidden compartment.", "What was barricaded can now be examined."]
+ritual = ["The pattern answers within the limits you prepared.", "The ward settles and reveals what had been concealed.", "The invoked name binds itself to the record.", "The circle closes cleanly around the anomaly.", "The Archive accepts the rite and preserves its result."]
+
+[action_failures]
+investigate = ["The evidence contradicts itself until nothing useful remains.", "The trail dissolves into unrelated catalogue entries.", "Someone has removed the necessary pages too carefully.", "The recovered detail leads only to another absence.", "The records close around their secret."]
+interview = ["The account fragments under scrutiny and yields nothing reliable.", "The witness retreats into a rehearsed silence.", "Every useful detail changes when repeated.", "The testimony belongs to someone who was never there.", "The witness leaves before the central question is answered."]
+force = ["The obstruction holds, and something beyond it takes notice.", "The seal bends without breaking.", "The passage shifts its weight against you.", "The mechanism locks more deeply into place.", "The attempted breach exposes only another barrier."]
+ritual = ["The rite completes incorrectly and leaves no usable answer.", "The invoked presence refuses the terms of the circle.", "The ward gutters out before the pattern settles.", "The final symbol changes beneath your hand.", "Something answers, but not in a form the File can use."]
+
 [resolution_tiers]
 # Spoken at resolution, by tier. Tiers run worst-to-best.
 disaster = [

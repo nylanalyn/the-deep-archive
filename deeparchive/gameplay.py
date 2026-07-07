@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Literal, Protocol
 
 from deeparchive.actions import DailyActionLedger
+from deeparchive.action_flavour import ActionNarrator
 from deeparchive.identity import Player
 from deeparchive.modifiers import ModifierService
 from deeparchive.resolution import ResolutionOutcome, ResolutionService
@@ -29,6 +30,8 @@ class ActionOutcome:
     resolution: ResolutionOutcome | None = None
     blocked_message: str | None = None
     confront_unlocked: bool = False
+    attempt_text: str | None = None
+    result_text: str | None = None
 
 
 _ACTION_STATS: dict[ActionName, str | None] = {
@@ -37,21 +40,6 @@ _ACTION_STATS: dict[ActionName, str | None] = {
     "force": "strength",
     "ritual": "occultism",
 }
-
-_SUCCESS_TEXT: dict[ActionName, str] = {
-    "investigate": "A useful notation emerges from the catalogue's margins.",
-    "interview": "The witness corrects the record. Something useful remains.",
-    "force": "The sealed way yields, reluctantly.",
-    "ritual": "The pattern settles into a shape the Archive can record.",
-}
-
-_FAILURE_TEXT: dict[ActionName, str] = {
-    "investigate": "The trail ends at a shelf with no call number.",
-    "interview": "The account contradicts itself, then falls silent.",
-    "force": "Something beyond the door pushes back.",
-    "ritual": "The circle holds, but not in the way you intended.",
-}
-
 
 class GameplayService:
     """Resolve player actions without exposing rolls or File thresholds."""
@@ -63,12 +51,14 @@ class GameplayService:
         rng: RandomSource,
         resolution: ResolutionService,
         modifiers: ModifierService,
+        narrator: ActionNarrator,
     ) -> None:
         self._conn = conn
         self._ledger = ledger
         self._rng = rng
         self._resolution = resolution
         self._modifiers = modifiers
+        self._narrator = narrator
 
     def perform(self, player: Player, action: ActionName) -> ActionOutcome | None:
         if action not in _ACTION_STATS:
@@ -99,6 +89,8 @@ class GameplayService:
                 return None
 
             success = self._roll(player, action)
+            attempt_text = self._narrator.attempt(action)
+            result_text = self._narrator.result(action, success)
             if success:
                 update = self._conn.execute(
                     "UPDATE active_file SET successes = successes + 1, "
@@ -129,6 +121,8 @@ class GameplayService:
             remaining_actions=allowance.remaining,
             resolution=resolution,
             confront_unlocked=confront_unlocked,
+            attempt_text=attempt_text,
+            result_text=result_text,
         )
 
     def _roll(self, player: Player, action: ActionName) -> bool:
@@ -148,13 +142,15 @@ class GameplayService:
             if outcome.resolution is None:
                 raise RuntimeError("resolution guard produced no resolution")
             return list(outcome.resolution.lines)
-        text = (
-            _SUCCESS_TEXT[outcome.action]
-            if outcome.success
-            else _FAILURE_TEXT[outcome.action]
-        )
+        if outcome.attempt_text is None or outcome.result_text is None:
+            raise RuntimeError("completed action is missing narration")
         noun = "action" if outcome.remaining_actions == 1 else "actions"
-        lines = [f"{text} {outcome.remaining_actions} {noun} remain today."]
+        label = "SUCCESS" if outcome.success else "FAILURE"
+        lines = [
+            outcome.attempt_text,
+            f"{label} — {outcome.result_text} "
+            f"{outcome.remaining_actions} {noun} remain today.",
+        ]
         if outcome.resolution is not None:
             lines.extend(outcome.resolution.lines)
         elif outcome.confront_unlocked:
