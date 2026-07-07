@@ -28,6 +28,10 @@ import sqlite3
 import uuid
 from dataclasses import dataclass
 
+from deeparchive.backgrounds import BackgroundAssigner
+from deeparchive.content import load_content
+from deeparchive.rng import make_rng
+
 logger = logging.getLogger(__name__)
 
 # IRC's account-notify sends ``*`` when a user logs out. We treat it as "no
@@ -57,8 +61,15 @@ class IdentityResolver:
     separate from the IRC layer makes the identity contract unit-testable.
     """
 
-    def __init__(self, conn: sqlite3.Connection) -> None:
+    def __init__(
+        self,
+        conn: sqlite3.Connection,
+        background_assigner: BackgroundAssigner | None = None,
+    ) -> None:
         self._conn = conn
+        self._backgrounds = background_assigner or BackgroundAssigner(
+            load_content(), make_rng()
+        )
 
     # ------------------------------------------------------------------
     # Resolution
@@ -79,8 +90,11 @@ class IdentityResolver:
         account = self._normalize_account(account)
 
         if account is not None:
-            return self._resolve_via_account(nick, account)
-        return self._resolve_via_nick(nick)
+            player = self._resolve_via_account(nick, account)
+        else:
+            player = self._resolve_via_nick(nick)
+        self._ensure_background(player.id)
+        return player
 
     def _resolve_via_account(self, nick: str, account: str) -> Player:
         """Account is authoritative: find or create the player by account."""
@@ -271,11 +285,20 @@ class IdentityResolver:
 
     def _create_player(self, nick: str, account: str | None) -> Player:
         player_id = str(uuid.uuid4())
-        # Zero is the neutral Phase 6 baseline: a 1d6 check against 4 succeeds
-        # half the time. Later scars and relics move investigators away from it.
+        background = self._backgrounds.choose()
         self._conn.execute(
-            "INSERT INTO players (id, account, display_nick) VALUES (?, ?, ?)",
-            (player_id, account, nick),
+            "INSERT INTO players "
+            "(id, account, display_nick, background_key, wit, strength, occultism) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                player_id,
+                account,
+                nick,
+                background.key,
+                background.stats["wit"],
+                background.stats["strength"],
+                background.stats["occultism"],
+            ),
         )
         self._conn.execute(
             "INSERT INTO nick_map (nick, player_id) VALUES (?, ?)",
@@ -283,6 +306,27 @@ class IdentityResolver:
         )
         self._conn.commit()
         return Player(id=player_id, account=account, display_nick=nick)
+
+    def _ensure_background(self, player_id: str) -> None:
+        """Assign a background to a pre-Phase-7 investigator on first sight."""
+        row = self._conn.execute(
+            "SELECT background_key FROM players WHERE id = ?", (player_id,)
+        ).fetchone()
+        if row is None or row["background_key"] != "unassigned":
+            return
+        background = self._backgrounds.choose()
+        self._conn.execute(
+            "UPDATE players SET background_key = ?, wit = ?, strength = ?, "
+            "occultism = ? WHERE id = ? AND background_key = 'unassigned'",
+            (
+                background.key,
+                background.stats["wit"],
+                background.stats["strength"],
+                background.stats["occultism"],
+                player_id,
+            ),
+        )
+        self._conn.commit()
 
     # ------------------------------------------------------------------
     # Read-only introspection (used by the admin surface)
@@ -309,6 +353,7 @@ class IdentityResolver:
         ).fetchone()
         if row is None:
             return None
+        self._ensure_background(str(row["id"]))
         return Player(
             id=row["id"], account=row["account"], display_nick=row["display_nick"]
         )

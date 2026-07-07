@@ -35,6 +35,7 @@ class TestSchemaPresent:
             "scars",
             "relics",
             "meta_arc_state",
+            "active_file_participants",
         }
         assert expected.issubset(tables)
 
@@ -50,6 +51,10 @@ class TestSchemaPresent:
 
 
 class TestPlayerAndNickMap:
+    def test_phase_seven_player_columns(self, conn):
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(players)")}
+        assert {"background_key", "completed_files"}.issubset(columns)
+
     def test_insert_player_and_map_nick(self, conn):
         conn.execute(
             "INSERT INTO players (id, account, display_nick) VALUES (?, ?, ?)",
