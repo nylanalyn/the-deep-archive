@@ -4,8 +4,10 @@
 # a bonus, a penalty, or both. Scars make investigators stranger, not simply
 # weaker (per SPEC).
 #
-# Modifiers are looked up from this file at runtime by scar_key; the DB stores
-# only the key. This is the single source of truth for scar mechanics.
+# This file is the single source of truth for scar mechanics: checks look up
+# modifiers here by scar_key at runtime, so rebalancing a scar applies to
+# everyone who carries it. The DB keeps a modifiers_json snapshot only as a
+# historical record (and as a fallback for scars removed from content).
 
 [scars.paper_bones]
 name = "Paper Bones"
@@ -33,5 +35,53 @@ name = "Borrowed Shadow"
 description = "Your shadow is not your own. It moves a half-beat behind you."
 modifiers = [
     { stat = "wit", delta = 1 },
+    { stat = "occultism", delta = -1 },
+]
+
+[scars.ink_dark_veins]
+name = "Ink-Dark Veins"
+description = "Your veins run faintly black under lamplight. Pages answer to your touch."
+modifiers = [
+    { stat = "occultism", delta = 1 },
+    { stat = "strength", delta = -1 },
+]
+
+[scars.catalogue_tongue]
+name = "Catalogue Tongue"
+description = "You can only lie in alphabetical order."
+modifiers = [
+    { stat = "wit", delta = 1 },
+    { stat = "occultism", delta = -1 },
+]
+
+[scars.hollow_step]
+name = "Hollow Step"
+description = "Your footsteps land a moment after you do."
+modifiers = [
+    { stat = "strength", delta = 1 },
+    { stat = "wit", delta = -1 },
+]
+
+[scars.moth_lung]
+name = "Moth Lung"
+description = "Your breath carries dust that was never yours. It whispers shelf-marks."
+modifiers = [
+    { stat = "occultism", delta = 1 },
+    { stat = "wit", delta = -1 },
+]
+
+[scars.second_reflection]
+name = "Second Reflection"
+description = "Mirrors show you attentive, even when you have looked away."
+modifiers = [
+    { stat = "wit", delta = 1 },
+    { stat = "strength", delta = -1 },
+]
+
+[scars.wax_fingers]
+name = "Wax Fingers"
+description = "Your fingerprints melt and reset daily. Old seals recognize you as kin."
+modifiers = [
+    { stat = "strength", delta = 1 },
     { stat = "occultism", delta = -1 },
 ]

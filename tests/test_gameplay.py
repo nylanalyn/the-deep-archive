@@ -19,20 +19,28 @@ class FixedRng:
     def __init__(self, *, die: int = 4, chance: bool = True) -> None:
         self.die = die
         self.chance_result = chance
-        self.last_probability: float | None = None
+        self.probabilities: list[float] = []
 
     def randint(self, low: int, high: int) -> int:
         assert low <= self.die <= high
         return self.die
 
     def chance(self, probability: float) -> bool:
-        self.last_probability = probability
+        self.probabilities.append(probability)
         return self.chance_result
+
+    def choice(self, seq):
+        return seq[0]
 
 
 def _setup(migrated_conn, rng: FixedRng, background_assigner):
     content = load_content()
     FileService(migrated_conn, content, Rng(1)).ensure_active()
+    # Detach the File from any real theme so dispositions stay out of tests
+    # that aren't about them.
+    migrated_conn.execute(
+        "UPDATE active_file SET theme_key = 'neutral' WHERE id = 1"
+    )
     player = IdentityResolver(migrated_conn, background_assigner).resolve_identity("alice", None)
     migrated_conn.execute(
         "UPDATE players SET wit = 0, strength = 0, occultism = 0 WHERE id = ?",
@@ -46,8 +54,9 @@ def _setup(migrated_conn, rng: FixedRng, background_assigner):
         ledger,
         rng,
         resolution,
-        ModifierService(migrated_conn),
+        ModifierService(migrated_conn, content),
         ActionNarrator(content, Rng(99)),
+        content,
     )
 
 
@@ -61,14 +70,24 @@ def test_success_updates_successes_and_clues(migrated_conn, background_assigner)
     assert tuple(row) == (1, 0, 0, 1)
 
 
-def test_failure_updates_failures_and_danger(migrated_conn, background_assigner) -> None:
+def test_failed_interview_adds_one_danger(migrated_conn, background_assigner) -> None:
+    player, _, gameplay = _setup(migrated_conn, FixedRng(die=3), background_assigner)
+    outcome = gameplay.perform(player, "interview")
+    row = migrated_conn.execute(
+        "SELECT successes, failures, danger, clue_count FROM active_file"
+    ).fetchone()
+    assert outcome is not None and not outcome.success
+    assert tuple(row) == (0, 1, 1, 0)
+
+
+def test_failed_force_adds_double_danger(migrated_conn, background_assigner) -> None:
     player, _, gameplay = _setup(migrated_conn, FixedRng(die=3), background_assigner)
     outcome = gameplay.perform(player, "force")
     row = migrated_conn.execute(
         "SELECT successes, failures, danger, clue_count FROM active_file"
     ).fetchone()
     assert outcome is not None and not outcome.success
-    assert tuple(row) == (0, 1, 1, 0)
+    assert tuple(row) == (0, 1, 2, 0)
 
 
 def test_player_stat_changes_check_result(migrated_conn, background_assigner) -> None:
@@ -79,12 +98,50 @@ def test_player_stat_changes_check_result(migrated_conn, background_assigner) ->
     assert outcome is not None and outcome.success
 
 
+def test_natural_one_always_fails(migrated_conn, background_assigner) -> None:
+    player, _, gameplay = _setup(migrated_conn, FixedRng(die=1), background_assigner)
+    migrated_conn.execute("UPDATE players SET wit = 10 WHERE id = ?", (player.id,))
+    migrated_conn.commit()
+    outcome = gameplay.perform(player, "interview")
+    assert outcome is not None and not outcome.success
+
+
+def test_natural_six_always_succeeds(migrated_conn, background_assigner) -> None:
+    player, _, gameplay = _setup(migrated_conn, FixedRng(die=6), background_assigner)
+    migrated_conn.execute("UPDATE players SET wit = -5 WHERE id = ?", (player.id,))
+    migrated_conn.commit()
+    outcome = gameplay.perform(player, "interview")
+    assert outcome is not None and outcome.success
+
+
+def test_theme_disposition_resists_action(migrated_conn, background_assigner) -> None:
+    # Darkness resists interview (-1): an otherwise-passing 4 now misses.
+    player, _, gameplay = _setup(migrated_conn, FixedRng(die=4), background_assigner)
+    migrated_conn.execute(
+        "UPDATE active_file SET theme_key = 'darkness' WHERE id = 1"
+    )
+    migrated_conn.commit()
+    outcome = gameplay.perform(player, "interview")
+    assert outcome is not None and not outcome.success
+
+
+def test_theme_disposition_favours_action(migrated_conn, background_assigner) -> None:
+    # Darkness favours ritual (+1): an otherwise-failing 3 now passes.
+    player, _, gameplay = _setup(migrated_conn, FixedRng(die=3), background_assigner)
+    migrated_conn.execute(
+        "UPDATE active_file SET theme_key = 'darkness' WHERE id = 1"
+    )
+    migrated_conn.commit()
+    outcome = gameplay.perform(player, "ritual")
+    assert outcome is not None and outcome.success
+
+
 def test_investigate_uses_half_chance(migrated_conn, background_assigner) -> None:
     rng = FixedRng(chance=False)
     player, _, gameplay = _setup(migrated_conn, rng, background_assigner)
     outcome = gameplay.perform(player, "investigate")
     assert outcome is not None and not outcome.success
-    assert rng.last_probability == 0.5
+    assert rng.probabilities[0] == 0.5
 
 
 def test_gambler_investigate_uses_improved_chance(
@@ -97,14 +154,68 @@ def test_gambler_investigate_uses_improved_chance(
     )
     migrated_conn.commit()
     gameplay.perform(player, "investigate")
-    assert rng.last_probability == 0.55
+    assert rng.probabilities[0] == 0.55
+
+
+def test_successful_investigate_can_steady_the_file(
+    migrated_conn, background_assigner
+) -> None:
+    rng = FixedRng(chance=True)  # succeeds, steadies, and complicates
+    player, _, gameplay = _setup(migrated_conn, rng, background_assigner)
+    migrated_conn.execute("UPDATE active_file SET danger = 2 WHERE id = 1")
+    migrated_conn.commit()
+    outcome = gameplay.perform(player, "investigate")
+    row = migrated_conn.execute(
+        "SELECT successes, danger FROM active_file"
+    ).fetchone()
+    assert outcome is not None and outcome.success
+    # danger 2 - 1 (steadied) + 1 (complication) = 2
+    assert tuple(row) == (1, 2)
+    assert len(outcome.extra_lines) == 2
+
+
+def test_failed_investigate_never_steadies(migrated_conn, background_assigner) -> None:
+    rng = FixedRng(chance=False)
+    player, _, gameplay = _setup(migrated_conn, rng, background_assigner)
+    migrated_conn.execute("UPDATE active_file SET danger = 2 WHERE id = 1")
+    migrated_conn.commit()
+    outcome = gameplay.perform(player, "investigate")
+    row = migrated_conn.execute("SELECT danger FROM active_file").fetchone()
+    assert outcome is not None and not outcome.success
+    assert int(row["danger"]) == 3  # +1 failure danger, no steady, no complication
+
+
+def test_crossing_danger_threshold_emits_omen(
+    migrated_conn, background_assigner
+) -> None:
+    player, _, gameplay = _setup(migrated_conn, FixedRng(die=2), background_assigner)
+    migrated_conn.execute("UPDATE active_file SET danger = 3 WHERE id = 1")
+    migrated_conn.commit()
+    outcome = gameplay.perform(player, "force")  # fail: danger 3 -> 5, crosses 4
+    assert outcome is not None and not outcome.success
+    assert len(outcome.extra_lines) == 1
+
+
+def test_critical_danger_bites_the_acting_investigator(
+    migrated_conn, background_assigner
+) -> None:
+    player, _, gameplay = _setup(migrated_conn, FixedRng(die=2), background_assigner)
+    migrated_conn.execute("UPDATE active_file SET danger = 11 WHERE id = 1")
+    migrated_conn.commit()
+    outcome = gameplay.perform(player, "force")  # fail: danger 11 -> 13
+    assert outcome is not None and not outcome.success
+    assert any("The File bites" in line for line in outcome.extra_lines)
+    scar_count = migrated_conn.execute(
+        "SELECT COUNT(*) FROM scars WHERE player_id = ?", (player.id,)
+    ).fetchone()[0]
+    assert scar_count == 1
 
 
 def test_scar_and_relic_can_turn_failure_into_success(
     migrated_conn, background_assigner
 ) -> None:
     player, _, gameplay = _setup(
-        migrated_conn, FixedRng(die=1), background_assigner
+        migrated_conn, FixedRng(die=2), background_assigner
     )
     migrated_conn.execute(
         "UPDATE active_file SET theme_tags_json = '[\"darkness\"]' WHERE id = 1"
@@ -129,9 +240,9 @@ def test_scar_and_relic_can_turn_failure_into_success(
     [("interview", "wit"), ("force", "strength"), ("ritual", "occultism")],
 )
 def test_each_command_uses_its_own_stat(migrated_conn, background_assigner, action, stat) -> None:
-    player, _, gameplay = _setup(migrated_conn, FixedRng(die=1), background_assigner)
+    player, _, gameplay = _setup(migrated_conn, FixedRng(die=2), background_assigner)
     migrated_conn.execute(
-        f"UPDATE players SET {stat} = 3 WHERE id = ?", (player.id,)
+        f"UPDATE players SET {stat} = 2 WHERE id = ?", (player.id,)
     )
     migrated_conn.commit()
     outcome = gameplay.perform(player, action)
@@ -152,13 +263,15 @@ def test_exhausted_action_does_not_change_file(migrated_conn, background_assigne
 def test_file_update_failure_rolls_back_action(migrated_conn, background_assigner) -> None:
     player = IdentityResolver(migrated_conn, background_assigner).resolve_identity("alice", None)
     ledger = DailyActionLedger(migrated_conn)
+    content = load_content()
     gameplay = GameplayService(
         migrated_conn,
         ledger,
         FixedRng(),
-        ResolutionService(migrated_conn, load_content(), Rng(2)),
-        ModifierService(migrated_conn),
-        ActionNarrator(load_content(), Rng(99)),
+        ResolutionService(migrated_conn, content, Rng(2)),
+        ModifierService(migrated_conn, content),
+        ActionNarrator(content, Rng(99)),
+        content,
     )
     with pytest.raises(RuntimeError, match="no active File"):
         gameplay.perform(player, "interview")
@@ -183,3 +296,26 @@ def test_threshold_crossing_resolves_and_opens_next_file(
     assert migrated_conn.execute("SELECT COUNT(*) FROM file_history").fetchone()[0] == 1
     new_seed = migrated_conn.execute("SELECT seed FROM active_file").fetchone()[0]
     assert new_seed != old_seed
+
+
+def test_disposition_softens_and_sharpens_danger(
+    migrated_conn, background_assigner
+) -> None:
+    # Dust favours force: a failed force only adds 1 danger instead of 2.
+    player, _, gameplay = _setup(migrated_conn, FixedRng(die=2), background_assigner)
+    migrated_conn.execute("UPDATE active_file SET theme_key = 'dust' WHERE id = 1")
+    migrated_conn.commit()
+    outcome = gameplay.perform(player, "force")
+    danger = migrated_conn.execute("SELECT danger FROM active_file").fetchone()[0]
+    assert outcome is not None and not outcome.success
+    assert danger == 1
+
+    # Flood resists force: a failed force adds 3.
+    migrated_conn.execute(
+        "UPDATE active_file SET theme_key = 'flood', danger = 0 WHERE id = 1"
+    )
+    migrated_conn.commit()
+    outcome = gameplay.perform(player, "force")
+    danger = migrated_conn.execute("SELECT danger FROM active_file").fetchone()[0]
+    assert outcome is not None and not outcome.success
+    assert danger == 3

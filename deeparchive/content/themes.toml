@@ -7,6 +7,11 @@
 # title_parts keys are composed by the generator (Phase 5). Convention:
 #   prefix + noun + optional suffix -> "The Quiet Collapse of Stairwell B"
 # Keep fragments short and evocative; the Archivist speaks plainly.
+#
+# dispositions (Extras E9) shift stat checks while a File of this theme is
+# active: the theme favours one approach (+1) and resists another (-1).
+# approach_hint is the telegraph — shown by !case, worded so a careful reader
+# can decode which approaches the File wants.
 
 [themes.darkness]
 name = "Darkness"
@@ -18,6 +23,8 @@ locations = [
     "the lampless annexe",
 ]
 title_parts = { prefix = ["The Quiet", "The Drowned", "The Hollow", "The Last"], noun = ["Lantern", "Vigil", "Stairwell", "Catalogue", "Reading"], suffix = ["of Stairwell B", "in the East Wing", "before Dawn"] }
+dispositions = { interview = -1, ritual = 1 }
+approach_hint = "A note in the margin: testimony fails where the lamps do. The old rites carry their own light."
 
 [themes.flood]
 name = "Flood"
@@ -28,6 +35,8 @@ locations = [
     "a reading room knee-deep in black water",
 ]
 title_parts = { prefix = ["The Rising", "The Sunken", "The Brackish"], noun = ["Tide", "Basement", "Pipe", "Cistern", "Archive"], suffix = ["beneath the Archive", "after the Rains"] }
+dispositions = { force = -1, interview = 1 }
+approach_hint = "A note in the margin: the water resents being pushed. Someone dry watched it rise — find them."
 
 [themes.geometry]
 name = "Geometry"
@@ -38,3 +47,44 @@ locations = [
     "a stairwell with inconsistent steps",
 ]
 title_parts = { prefix = ["The Impossible", "The Folded", "The Recursive"], noun = ["Corridor", "Angle", "Room", "Stairwell", "Hall"], suffix = ["behind the Map Room", "that Should Not Be"] }
+dispositions = { force = -1, ritual = 1 }
+approach_hint = "A note in the margin: the room does not yield to shoulders. It yields to the old measures."
+
+[themes.dust]
+name = "Dust"
+tags = ["dust", "stillness"]
+locations = [
+    "the unswept gallery",
+    "a reading room sheeted like furniture",
+    "the closed stacks, row after grey row",
+    "the cataloguer's abandoned office",
+]
+title_parts = { prefix = ["The Grey", "The Unswept", "The Settled", "The Patient"], noun = ["Gallery", "Ledger", "Season", "Inventory", "Shroud"], suffix = ["of the Closed Stacks", "under Sheet and Sign", "since the Last Census"] }
+dispositions = { interview = -1, force = 1 }
+approach_hint = "A note in the margin: everyone who could answer is long past answering. Bring a crowbar, not a notebook."
+
+[themes.mirrors]
+name = "Mirrors"
+tags = ["mirrors", "reflection"]
+locations = [
+    "the glazed corridor",
+    "a reading room that faces itself",
+    "the cabinet of blackened glass",
+    "the washroom no one uses twice",
+]
+title_parts = { prefix = ["The Facing", "The Doubled", "The Silvered", "The Opposite"], noun = ["Reader", "Corridor", "Portrait", "Inventory", "Gaze"], suffix = ["in the Blackened Glass", "across the Hall", "that Blinks First"] }
+dispositions = { force = -1, ritual = 1 }
+approach_hint = "A note in the margin: do not put your hands on the glass. Bind it — every witness here lies twice."
+
+[themes.clocks]
+name = "Clocks"
+tags = ["clocks", "time"]
+locations = [
+    "the horological annexe",
+    "the landing where the hours pool",
+    "a reading room four minutes behind",
+    "the winding room",
+]
+title_parts = { prefix = ["The Borrowed", "The Unwound", "The Eleventh", "The Counted"], noun = ["Hour", "Pendulum", "Chime", "Interval", "Winter"], suffix = ["at Closing Time", "between Ticks", "that Struck Twice"] }
+dispositions = { ritual = -1, interview = 1 }
+approach_hint = "A note in the margin: ceremony only winds it further. The hours keep witnesses — ask them."

@@ -21,6 +21,9 @@ class FixedDie:
         assert low <= self.value <= high
         return self.value
 
+    def choice(self, seq):
+        return seq[0]
+
 
 def _resolve_darkness(migrated_conn, service: ResolutionService):
     migrated_conn.execute(
@@ -78,19 +81,28 @@ def _ready_sealed(migrated_conn, background_assigner):
     return content, player
 
 
+def _confrontation(migrated_conn, content, die: int) -> ConfrontationService:
+    return ConfrontationService(
+        migrated_conn,
+        DailyActionLedger(migrated_conn),
+        ModifierService(migrated_conn, content),
+        ResolutionService(migrated_conn, content, Rng(3)),
+        FixedDie(die),  # type: ignore[arg-type]
+        content,
+    )
+
+
 def test_confrontation_victory_shelves_permanent_reward(
     migrated_conn, background_assigner
 ) -> None:
     content, player = _ready_sealed(migrated_conn, background_assigner)
-    resolution = ResolutionService(migrated_conn, content, Rng(3))
-    service = ConfrontationService(
-        migrated_conn,
-        DailyActionLedger(migrated_conn),
-        ModifierService(migrated_conn),
-        resolution,
-        FixedDie(6),  # type: ignore[arg-type]
+    second = IdentityResolver(migrated_conn, background_assigner).resolve_identity(
+        "bob", None
     )
-    lines = service.confront(player)
+    service = _confrontation(migrated_conn, content, die=6)
+    first_lines = service.confront(player)
+    assert any("not yet decided" in line or "unfinished" in line for line in first_lines)
+    lines = service.confront(second)
     assert any("permanent addition" in line for line in lines)
     reward_key = content.meta_arcs["black_index"].reward_key
     assert migrated_conn.execute(
@@ -99,31 +111,48 @@ def test_confrontation_victory_shelves_permanent_reward(
     assert MetaArcService(migrated_conn, content, Rng(1)).state()["victories"]["black_index"] == 1
 
 
-def test_confrontation_defeat_steals_relic_and_records_defeat(
+def test_confrontation_defeat_steals_relic_and_lands_as_disaster(
     migrated_conn, background_assigner
 ) -> None:
     content, player = _ready_sealed(migrated_conn, background_assigner)
+    second = IdentityResolver(migrated_conn, background_assigner).resolve_identity(
+        "bob", None
+    )
     migrated_conn.execute(
-        "UPDATE players SET wit = 0, strength = 0, occultism = 0 WHERE id = ?",
-        (player.id,),
+        "UPDATE players SET wit = 0, strength = 0, occultism = 0"
     )
     migrated_conn.execute(
         "INSERT INTO relics (relic_key, description) VALUES ('old_lamp', 'old')"
     )
     migrated_conn.commit()
-    resolution = ResolutionService(migrated_conn, content, Rng(3))
-    service = ConfrontationService(
-        migrated_conn,
-        DailyActionLedger(migrated_conn),
-        ModifierService(migrated_conn),
-        resolution,
-        FixedDie(1),  # type: ignore[arg-type]
-    )
-    lines = service.confront(player)
+    service = _confrontation(migrated_conn, content, die=1)
+    service.confront(player)
+    lines = service.confront(second)
     assert any("takes its due" in line for line in lines)
+    # Defeat resolves as disaster: the relic is stolen and someone is scarred.
     assert migrated_conn.execute("SELECT COUNT(*) FROM relics").fetchone()[0] == 0
     assert migrated_conn.execute("SELECT COUNT(*) FROM scars").fetchone()[0] == 1
+    history_tier = migrated_conn.execute(
+        "SELECT resolution_tier FROM file_history ORDER BY id DESC LIMIT 1"
+    ).fetchone()[0]
+    assert history_tier == "disaster"
     assert MetaArcService(migrated_conn, content, Rng(1)).state()["defeats"]["black_index"] == 1
+
+
+def test_confront_is_once_per_investigator_per_day(
+    migrated_conn, background_assigner
+) -> None:
+    content, player = _ready_sealed(migrated_conn, background_assigner)
+    ledger = DailyActionLedger(migrated_conn)
+    service = _confrontation(migrated_conn, content, die=6)
+    service.confront(player)
+    lines = service.confront(player)
+    assert any("already faced it today" in line for line in lines)
+    assert ledger.allowance(player.id).used == 1
+    # The arc is still open: one win is not enough.
+    assert migrated_conn.execute(
+        "SELECT is_sealed FROM active_file"
+    ).fetchone()[0] == 1
 
 
 def test_confront_before_evidence_does_not_consume_action(
@@ -136,9 +165,10 @@ def test_confront_before_evidence_does_not_consume_action(
     service = ConfrontationService(
         migrated_conn,
         ledger,
-        ModifierService(migrated_conn),
+        ModifierService(migrated_conn, content),
         ResolutionService(migrated_conn, content, Rng(3)),
         FixedDie(6),  # type: ignore[arg-type]
+        content,
     )
     assert "needs more evidence" in service.confront(player)[0]
     assert ledger.allowance(player.id).used == 0

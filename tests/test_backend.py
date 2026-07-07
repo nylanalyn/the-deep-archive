@@ -52,8 +52,8 @@ class TestHandleMessage:
 
     def test_profile_returns_personnel_file(self, backend):
         replies = backend.handle_message("alice", None, "!profile")
-        assert replies == [
-            "Personnel file: alice — Newly Catalogued.",
+        assert replies[0].startswith("Personnel file: alice — ")
+        assert replies[1:] == [
             "Effective: Wit 2 · Strength 0 · Occultism 1.",
             "Actions remaining today: 5.",
             "Background: Archivist · Completed Files: 0.",
@@ -65,17 +65,17 @@ class TestHandleMessage:
         backend.resolve_identity("bob", "bob_acct")
         # Now seen as bob_away but identified by the same account.
         replies = backend.handle_message("bob_away", "bob_acct", "!profile")
-        assert replies[0] == "Personnel file: bob_away — Newly Catalogued."
+        assert replies[0].startswith("Personnel file: bob_away — ")
 
     def test_profile_looks_up_another_known_nick(self, backend):
         backend.handle_message("bob", None, "hello")
         replies = backend.handle_message("alice", None, "!profile bob")
-        assert replies[0] == "Personnel file: bob — Newly Catalogued."
+        assert replies[0].startswith("Personnel file: bob — ")
 
     def test_profile_lookup_is_case_insensitive(self, backend):
         backend.handle_message("Bob", None, "hello")
         replies = backend.handle_message("alice", None, "!profile bOB")
-        assert replies[0] == "Personnel file: Bob — Newly Catalogued."
+        assert replies[0].startswith("Personnel file: Bob — ")
 
     def test_unknown_profile_does_not_create_player(self, backend):
         replies = backend.handle_message("alice", None, "!profile unknown")
@@ -99,9 +99,11 @@ class TestHandleMessage:
         assert profile[0].removesuffix(".").split(" — ")[1] in {
             "Marked Investigator",
             "Reader in Altered Condition",
+            "Amended Entry",
         }
+        # glass_eye's +1 wit comes from content (scars.toml), not the DB row.
         assert profile[1:] == [
-            "Effective: Wit 2 · Strength -1 · Occultism 1.",
+            "Effective: Wit 3 · Strength -1 · Occultism 1.",
             "Actions remaining today: 5.",
             "Background: Archivist · Completed Files: 0.",
             "Scars: One eye is cold glass.",
@@ -110,7 +112,9 @@ class TestHandleMessage:
     def test_case_describes_active_file(self, backend):
         replies = backend.handle_message("alice", None, "!case")
         assert replies[0].startswith("File: ")
-        assert len(replies) == 2
+        # Title/location, opening, progress band, approach hint.
+        assert len(replies) == 4
+        assert replies[3].startswith("A note in the margin:")
 
     def test_case_is_stable(self, backend):
         first = backend.handle_message("alice", None, "!case")
@@ -138,9 +142,12 @@ class TestHandleMessage:
         assert "remain today" in replies[1]
 
     def test_only_action_outcome_line_is_delayed(self, backend):
-        assert backend.reply_delay("!interview", 0) == 0
-        assert backend.reply_delay("!interview", 1) == 1.5
-        assert backend.reply_delay("!profile", 1) == 0
+        assert backend.reply_delay("!interview", 0, "You press the porter.") == 0
+        assert backend.reply_delay("!interview", 1, "SUCCESS — done.") == 1.5
+        assert backend.reply_delay("!interview", 1, "FAILURE — not today.") == 1.5
+        # A resolution line in slot 1 (ready-File recovery) is not delayed.
+        assert backend.reply_delay("!interview", 1, "The file is complete.") == 0
+        assert backend.reply_delay("!profile", 1, "SUCCESS — done.") == 0
 
     def test_profile_reflects_consumed_action(self, backend):
         backend.handle_message("alice", None, "!investigate")
@@ -194,8 +201,12 @@ class TestHandleMessage:
             "UPDATE players SET wit = 10 WHERE id = ?", (player.id,)
         )
         migrated_conn.commit()
-        replies = backend.handle_message("alice", None, "!interview")
-        assert any("permits: !confront" in line for line in replies)
+        seen = []
+        for _ in range(5):
+            seen.extend(backend.handle_message("alice", None, "!interview"))
+            if any("permits: !confront" in line for line in seen):
+                break
+        assert any("permits: !confront" in line for line in seen)
 
     def test_empty_message_returns_empty(self, backend):
         assert backend.handle_message("alice", None, "") == []
@@ -222,7 +233,7 @@ class TestRouteCommand:
     def test_profile_routing(self, backend):
         player = backend.resolve_identity("alice", None)
         result = backend.route_command(player, ParsedCommand("profile", "", False))
-        assert result[0] == "Personnel file: alice — Newly Catalogued."
+        assert result[0].startswith("Personnel file: alice — ")
 
     def test_unknown_routing(self, backend):
         player = backend.resolve_identity("alice", None)

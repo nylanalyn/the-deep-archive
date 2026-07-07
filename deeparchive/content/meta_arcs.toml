@@ -50,3 +50,54 @@ hints = [
     "The floor plan repeats a corridor recorded in an earlier File.",
     "Two unrelated diagrams share the same impossible angle.",
 ]
+
+[meta_arcs.standing_census]
+name = "The Standing Census"
+theme_key = "dust"
+trigger_count = 3
+title = "The Census That Counts Itself"
+location = "the closed stacks behind the rope"
+opening = "The sealed folder is heavier than its pages. Something inside has been counting."
+tags = ["dust", "stillness", "sealed"]
+threshold = 18
+reward_key = "surveyors_pin"
+reward_name = "Surveyor's Pin"
+reward_description = "Marks the one shelf the dust refuses to settle on."
+hints = [
+    "The dust in an earlier File matches this one, grain for grain.",
+    "A tally mark appears beside the count of closed Files. No one made it.",
+]
+
+[meta_arcs.facing_catalogue]
+name = "The Facing Catalogue"
+theme_key = "mirrors"
+trigger_count = 3
+title = "The Catalogue That Reads Its Readers"
+location = "the glazed gallery above the reading room"
+opening = "The sealed folder opens onto glass. Your reflections are already reading it."
+tags = ["mirrors", "reflection", "sealed"]
+threshold = 18
+reward_key = "silvered_bookplate"
+reward_name = "Silvered Bookplate"
+reward_description = "Reflects the borrower who meant to return it."
+hints = [
+    "A photograph from an earlier File now shows one figure more.",
+    "The evidence cabinet's glass holds a reflection after the room empties.",
+]
+
+[meta_arcs.borrowed_hour]
+name = "The Borrowed Hour"
+theme_key = "clocks"
+trigger_count = 3
+title = "The Hour Missing From the Minutes"
+location = "the winding room at the stair's end"
+opening = "The sealed folder is stamped out of order. Inside, the minutes disagree about the hour."
+tags = ["clocks", "time", "sealed"]
+threshold = 18
+reward_key = "master_winder"
+reward_name = "Master Winder"
+reward_description = "Winds the Archive's clocks to agree, briefly, about now."
+hints = [
+    "Two closed Files record the same minute twice.",
+    "The reading-room clock chimes an hour the day does not contain.",
+]

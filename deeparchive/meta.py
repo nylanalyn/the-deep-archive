@@ -92,7 +92,17 @@ class MetaArcService:
             return None
         row = self._rng.choice(rows)
         self._conn.execute("DELETE FROM relics WHERE id = ?", (row["id"],))
-        return str(row["relic_key"]).replace("_", " ").title()
+        return self._relic_name(str(row["relic_key"]))
+
+    def _relic_name(self, key: str) -> str:
+        """The display name for a shelved relic, from content when known."""
+        relic = self._content.relics.get(key)
+        if relic is not None:
+            return relic.name
+        for arc in self._content.meta_arcs.values():
+            if arc.reward_key == key:
+                return arc.reward_name
+        return key.replace("_", " ").title()
 
     def state(self) -> dict:
         return self._load()

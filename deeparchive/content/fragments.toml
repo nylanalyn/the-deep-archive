@@ -14,6 +14,7 @@ default = [
     "A new file lies open on the reading desk.",
     "The Archivist sets a folder before you, unmarked.",
     "Another file. The lamp does not flicker, but the room feels thinner.",
+    "The Archivist slides a folder across the desk without looking at it.",
 ]
 darkness = [
     "A new file lies open on the reading desk. The lamp gutters.",
@@ -30,6 +31,21 @@ geometry = [
     "The folder has more pages than its thickness should permit.",
     "The Archivist sets the file down. It does not sit flat.",
 ]
+dust = [
+    "The new file sheds grey powder that was not on the shelf it came from.",
+    "The Archivist blows across the folder. The dust does not move.",
+    "The file has been waiting. The dust on it says how long, if you can read it.",
+]
+mirrors = [
+    "The new file's cover is glossy enough to show your face. It is slow to let it go.",
+    "Two copies of the file lie on the desk. The Archivist insists there is one.",
+    "The file opens to a photograph of the desk it lies on.",
+]
+clocks = [
+    "The new file is stamped with tomorrow's date. The Archivist does not correct it.",
+    "Somewhere in the folder, something ticks. The pages are only paper.",
+    "The file smells of clock oil. The reading room's clock has stopped to listen.",
+]
 
 [archive_returns]
 # Spoken when investigators return to the Archive after a File resolves.
@@ -38,18 +54,22 @@ default = [
     "The Archivist shelves the closed file without comment.",
     "The Archive is quiet. So are you.",
     "You find yourselves back among the shelves. The reading lamp waits.",
+    "The Archive receives you the way it receives everything: it files you under returned.",
 ]
 success = [
     "You return to the Archive. A space has already been cleared on the shelf.",
     "The reading-room lamps seem warmer when you return.",
+    "The Archivist has set out tea. It is still hot, which means you were expected.",
 ]
 failure = [
     "You return to the Archive. One lamp has gone out.",
     "The Archivist receives the unfinished record without reproach.",
+    "The shelves take the folder back reluctantly, like a book returned damaged.",
 ]
 disaster = [
     "You return to the Archive, though the shelves do not seem to recognize you.",
     "The doors close behind you. Somewhere below, a catalogue drawer opens.",
+    "You return. The Archive counts you twice before letting you sit.",
 ]
 
 [archive_descriptions]
@@ -58,10 +78,12 @@ default = [
     "Shelves rise into shadow. The catalogue waits in ordered silence.",
     "The reading room is exactly where you left it. One chair is not.",
     "Dust rests on the long tables except where a folder was recently moved.",
+    "The Archive keeps its own hours. It is always within them.",
 ]
 reliquary = [
     "The Archive keeps its recovered relics behind glass that reflects no faces.",
     "A locked cabinet stands among the shelves. Its contents have earned their silence.",
+    "The reliquary case has been dusted. Not by staff.",
 ]
 
 [room_weather]
@@ -70,6 +92,9 @@ default = [
     "A dry wind moves between shelves that have no windows.",
     "Fog presses faintly against the glass above the Stacks.",
     "The weather beyond the windows is the color of old paper.",
+    "Snow falls past the high windows and never seems to land.",
+    "Sunlight enters at an angle the season does not explain.",
+    "Thunder, far off, keeping time with the catalogue drawers.",
 ]
 
 [room_moods]
@@ -78,33 +103,36 @@ default = [
     "No bells have rung for several hours. This is unusual.",
     "A book cart waits at the end of an aisle no one has entered.",
     "The catalogue drawers are closed. One of them is breathing.",
+    "Someone has left a bookmark in the accessions ledger, ten pages ahead.",
 ]
 settled = [
     "The lamps burn evenly. For now, the shelves appear content.",
     "The catalogue rests in good order. The Archivist does not mention this.",
+    "Even the eastern aisle is behaving. It feels like a held breath.",
 ]
 unsettled = [
     "The lamps have been turned low since the last File was shelved.",
     "Several books have shifted spine-inward. No one admits to touching them.",
+    "The Archivist keeps glancing at the door to the closed stacks.",
 ]
 
 [personnel_titles]
-new = ["Newly Catalogued"]
-active = ["Field Investigator", "Known Reader"]
-veteran = ["Senior Investigator", "Keeper of Closed Files"]
-marked = ["Marked Investigator", "Reader in Altered Condition"]
+new = ["Newly Catalogued", "Unverified Reader", "Provisional Entry"]
+active = ["Field Investigator", "Known Reader", "Reader in Good Standing"]
+veteran = ["Senior Investigator", "Keeper of Closed Files", "Reader of the Restricted Shelf"]
+marked = ["Marked Investigator", "Reader in Altered Condition", "Amended Entry"]
 
 [action_verbs]
-investigate = ["search", "trace", "compare", "reconstruct", "follow"]
+investigate = ["search", "trace", "compare", "reconstruct", "follow", "cross-index"]
 interview = ["question", "seek testimony from", "compare accounts with", "press", "speak quietly with"]
 force = ["pry open", "break through", "drag aside", "hold shut", "wrench loose"]
 ritual = ["inscribe a ward around", "burn a careful offering before", "invoke the name beneath", "draw a circle around", "recite the old catalogue over"]
 
 [action_targets]
-investigate = ["the water-stained accession records", "a sequence of misfiled photographs", "the notes left by a missing clerk", "an aisle omitted from the floor plan", "the dust beneath the evidence cabinet"]
-interview = ["the night porter", "a witness who refuses to sit", "the residents of the condemned boarding house", "a retired cataloguer", "the constable assigned to the first disappearance"]
-force = ["the swollen archive door", "a cabinet sealed with black wax", "the collapsed service passage", "a book cart lodged against the stairwell", "the chained door beneath the reading room"]
-ritual = ["the unnumbered threshold", "a page written in iron ink", "the object recovered from the east wing", "the name erased from the register", "the cold space inside the circle"]
+investigate = ["the water-stained accession records", "a sequence of misfiled photographs", "the notes left by a missing clerk", "an aisle omitted from the floor plan", "the dust beneath the evidence cabinet", "the borrower cards signed in an unfamiliar hand"]
+interview = ["the night porter", "a witness who refuses to sit", "the residents of the condemned boarding house", "a retired cataloguer", "the constable assigned to the first disappearance", "the caretaker's widow, who still sets two places"]
+force = ["the swollen archive door", "a cabinet sealed with black wax", "the collapsed service passage", "a book cart lodged against the stairwell", "the chained door beneath the reading room", "the shutters nailed from the inside"]
+ritual = ["the unnumbered threshold", "a page written in iron ink", "the object recovered from the east wing", "the name erased from the register", "the cold space inside the circle", "the seal pressed into candle-black wax"]
 
 [action_methods]
 investigate = ["under a failing desk lamp", "while the ink is still changing", "against records that insist nothing happened", "before the trail goes cold", "with the oldest catalogue as your guide"]
@@ -129,24 +157,130 @@ ritual = ["The rite completes incorrectly and leaves no usable answer.", "The in
 disaster = [
     "The file closes itself. Something has been lost that will not return.",
     "The Archive is dimmer now. The Archivist says nothing.",
+    "The folder is carried to the closed stacks by no one. The doors admit it.",
+    "What the File described is loose in the margins now. The record ends mid-sentence.",
 ]
 failure = [
     "The file is filed away, incomplete. It will not be opened again.",
     "The Archivist closes the folder slowly. 'Not this time.'",
+    "The record is stamped UNRESOLVED in ink that refuses to dry.",
+    "The file goes to the shelf of questions the Archive has agreed to stop asking.",
 ]
 mixed_failure = [
     "The file closes, half-finished. Some questions remain in the dark.",
     "The Archivist shelves the folder with a glance you cannot read.",
+    "The record holds, mostly. Its last pages are written in a more careful hand than yours.",
+    "The file accepts its ending the way a door accepts a wedge.",
 ]
 partial_success = [
     "The file closes, mostly resolved. One loose thread remains.",
     "The Archivist marks the folder, then thinks better of it.",
+    "The record is sound, save one page that will not stay in order.",
+    "The file is shelved. Something small inside it is still awake.",
 ]
 success = [
     "The file is complete. The Archivist marks it closed.",
     "The folder sits finished on the desk. The lamp steadies.",
+    "The record closes with the sound of a well-made drawer.",
+    "The Archivist signs the final page and, for a moment, looks younger.",
 ]
 clean_success = [
     "The file closes cleanly. The Archive seems, briefly, at rest.",
     "The Archivist shelves the folder with something almost like satisfaction.",
+    "Every page accounted for. The Archivist allows the lamps to brighten.",
+    "The record is perfect. The Archivist reads it twice before believing it.",
+]
+
+[danger_omens]
+# Extras E11. Spoken live when the active File's hidden danger crosses a
+# threshold; 'steadied' and 'complication' belong to !investigate's extras.
+rising = [
+    "The lamps dim by a width of wick. The Archivist looks up.",
+    "Something shifts its weight in the stacks. The file is heavier than it was.",
+    "A drawer in the catalogue opens by itself, then thinks better of it.",
+]
+high = [
+    "The Archivist sets down their pen and does not pick it up again.",
+    "The aisle behind you is longer than it was this morning. The file is patient.",
+    "The lamps burn low and blue. Whatever the File describes is describing you back.",
+]
+critical = [
+    "Every lamp in the Archive gutters at once. The file lies open, waiting.",
+    "The shelves lean in. The Archivist begins writing in the margin of your record.",
+]
+steadied = [
+    "The record steadies under your hand. Something in the File relaxes.",
+    "Your notes settle the pages. The room breathes easier.",
+    "The evidence, properly ordered, stops arguing with itself.",
+]
+complication = [
+    "One photograph in the evidence is of you, taken from inside the aisle.",
+    "The detail you recover is accurate. It is also a detail about you.",
+    "Something in the file notices it is being read.",
+]
+
+[file_progress]
+# Extras E12. !case describes how far along the File feels. The threshold
+# itself stays hidden; these bands map to successes/threshold quarters.
+thin = [
+    "The file is thin. Most of its pages are still sealed.",
+    "The record barely holds together; almost everything remains to be found.",
+]
+opening = [
+    "The file is opening. The early pages agree with each other now.",
+    "A shape is emerging in the record, though its middle is still missing.",
+]
+deep = [
+    "The file runs deep. Its account is more than half assembled.",
+    "The record thickens. The remaining gaps know they are being closed.",
+]
+closing = [
+    "The file bulges. It wants an ending.",
+    "Only the last pages resist. The folder no longer sits flat.",
+]
+
+[confrontations]
+# Extras E13. Individual beats in a communal confrontation: one check per
+# investigator per day; the arc resolves when either side reaches two.
+success = [
+    "Your reading holds. The pattern recoils.",
+    "You keep your place in the terrible index, and the page turns your way.",
+    "The name beneath the file answers to your voice, not its own.",
+]
+failure = [
+    "The pattern turns your page against you.",
+    "You lose your place, and the file remembers where you lost it.",
+    "The final leaf drinks the lamplight, and your answer with it.",
+]
+pending = [
+    "The Sealed File is not yet decided. The Archive waits for another reader.",
+    "The pattern holds, unfinished. It will take more hands than yours.",
+]
+
+[history_echoes]
+# Extras E14. Occasional cross-references to closed Files at resolution.
+# Every line must contain {title}; the loader enforces this.
+default = [
+    "The Archivist shelves it beside '{title}'.",
+    "A margin note cross-references '{title}'. The handwriting is old.",
+    "Its accession number falls one short of '{title}'. The Archivist frowns.",
+]
+
+[participant_echoes]
+# Extras E14. Occasional credit by nick on good closes. Must contain {nick}.
+default = [
+    "The closing note credits {nick}, in handwriting that is almost theirs.",
+    "Years from now, a reader will find {nick}'s name in this folder and wonder.",
+    "The Archivist records {nick}'s part in full, then locks the drawer.",
+]
+
+[day_heartbeats]
+# Extras E15. The one unprompted line, spoken when the day turns and the
+# action allowances reset. Seeded by day key: one line per day, no rerolls.
+default = [
+    "The day turns. The lamps are relit, and the allowances with them.",
+    "Morning, or what passes for it here. The reading desks are cleared.",
+    "The Archivist winds the clock that still consents to run. A new day is open.",
+    "The doors unlock themselves at the appointed hour. The Archive resumes.",
+    "The overnight returns have been shelved. The day's first lamp is lit.",
 ]

@@ -76,6 +76,7 @@ class ArchivistBot(pydle.Client):
         self._config = config
         self._backend = backend
         self._channel = irc.channel
+        self._heartbeat_task: asyncio.Task | None = None
 
     async def connect(self, **kwargs) -> None:  # type: ignore[override]
         """Connect with TLS settings from config.
@@ -105,6 +106,23 @@ class ArchivistBot(pydle.Client):
             logger.debug("could not set +B", exc_info=True)
         await self.join(self._channel)
         logger.info("joined %s", self._channel)
+        # One unprompted line when the day turns (allowances reset). The task
+        # survives reconnects; sends while disconnected fail quietly and the
+        # loop re-arms for the next boundary.
+        if self._heartbeat_task is None or self._heartbeat_task.done():
+            self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+
+    async def _heartbeat_loop(self) -> None:
+        while True:
+            # Pad past the boundary so the line lands in the new day.
+            await asyncio.sleep(self._backend.seconds_until_heartbeat() + 1.0)
+            line = self._backend.heartbeat_line()
+            if line is None:
+                continue
+            try:
+                await self.message(self._channel, line)
+            except Exception:
+                logger.debug("heartbeat send failed", exc_info=True)
 
     async def on_disconnect(self, expected: bool) -> None:  # type: ignore[override]
         if expected:
@@ -129,7 +147,7 @@ class ArchivistBot(pydle.Client):
         account = self._account_for(by)
         replies = self._backend.handle_message(by, account, message)
         for index, line in enumerate(replies):
-            delay = self._backend.reply_delay(message, index)
+            delay = self._backend.reply_delay(message, index, line)
             if delay:
                 await asyncio.sleep(delay)
             await self.message(target, line)
@@ -215,4 +233,6 @@ class ArchivistBot(pydle.Client):
 
     async def request_shutdown(self) -> None:
         """Disconnect cleanly. Called when the admin ``kill`` fires."""
+        if self._heartbeat_task is not None:
+            self._heartbeat_task.cancel()
         await self.disconnect(expected=True)

@@ -28,7 +28,14 @@ def test_loads_packaged_defaults() -> None:
 def test_loads_directory_override(tmp_path: Path) -> None:
     _copy_content(tmp_path)
     pack = load_content(tmp_path)
-    assert set(pack.themes) == {"darkness", "flood", "geometry"}
+    assert set(pack.themes) == {
+        "darkness",
+        "flood",
+        "geometry",
+        "dust",
+        "mirrors",
+        "clocks",
+    }
 
 
 def test_missing_directory_is_contextual(tmp_path: Path) -> None:
