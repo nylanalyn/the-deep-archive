@@ -9,6 +9,7 @@ from deeparchive.content import load_content
 from deeparchive.files import FileService
 from deeparchive.gameplay import GameplayService
 from deeparchive.identity import IdentityResolver
+from deeparchive.modifiers import ModifierService
 from deeparchive.rng import Rng
 from deeparchive.resolution import ResolutionService
 
@@ -39,7 +40,9 @@ def _setup(migrated_conn, rng: FixedRng, background_assigner):
     migrated_conn.commit()
     ledger = DailyActionLedger(migrated_conn)
     resolution = ResolutionService(migrated_conn, content, Rng(2))
-    return player, ledger, GameplayService(migrated_conn, ledger, rng, resolution)
+    return player, ledger, GameplayService(
+        migrated_conn, ledger, rng, resolution, ModifierService(migrated_conn)
+    )
 
 
 def test_success_updates_successes_and_clues(migrated_conn, background_assigner) -> None:
@@ -78,6 +81,43 @@ def test_investigate_uses_half_chance(migrated_conn, background_assigner) -> Non
     assert rng.last_probability == 0.5
 
 
+def test_gambler_investigate_uses_improved_chance(
+    migrated_conn, background_assigner
+) -> None:
+    rng = FixedRng(chance=True)
+    player, _, gameplay = _setup(migrated_conn, rng, background_assigner)
+    migrated_conn.execute(
+        "UPDATE players SET background_key = 'gambler' WHERE id = ?", (player.id,)
+    )
+    migrated_conn.commit()
+    gameplay.perform(player, "investigate")
+    assert rng.last_probability == 0.55
+
+
+def test_scar_and_relic_can_turn_failure_into_success(
+    migrated_conn, background_assigner
+) -> None:
+    player, _, gameplay = _setup(
+        migrated_conn, FixedRng(die=1), background_assigner
+    )
+    migrated_conn.execute(
+        "UPDATE active_file SET theme_tags_json = '[\"darkness\"]' WHERE id = 1"
+    )
+    migrated_conn.execute(
+        "INSERT INTO scars (player_id, scar_key, modifiers_json, description) "
+        "VALUES (?, 'glass_eye', '[{\"stat\":\"wit\",\"delta\":1}]', 'glass')",
+        (player.id,),
+    )
+    migrated_conn.execute(
+        "INSERT INTO relics (relic_key, effects_json, description) VALUES "
+        "('lamp', '[{\"type\":\"stat_bonus\",\"amount\":2,"
+        "\"tags\":[\"darkness\"]}]', 'steady')"
+    )
+    migrated_conn.commit()
+    outcome = gameplay.perform(player, "interview")
+    assert outcome is not None and outcome.success
+
+
 @pytest.mark.parametrize(
     ("action", "stat"),
     [("interview", "wit"), ("force", "strength"), ("ritual", "occultism")],
@@ -111,6 +151,7 @@ def test_file_update_failure_rolls_back_action(migrated_conn, background_assigne
         ledger,
         FixedRng(),
         ResolutionService(migrated_conn, load_content(), Rng(2)),
+        ModifierService(migrated_conn),
     )
     with pytest.raises(RuntimeError, match="no active File"):
         gameplay.perform(player, "interview")

@@ -8,6 +8,7 @@ from typing import Literal, Protocol
 
 from deeparchive.actions import DailyActionLedger
 from deeparchive.identity import Player
+from deeparchive.modifiers import ModifierService
 from deeparchive.resolution import ResolutionOutcome, ResolutionService
 
 ActionName = Literal["investigate", "interview", "force", "ritual"]
@@ -59,11 +60,13 @@ class GameplayService:
         ledger: DailyActionLedger,
         rng: RandomSource,
         resolution: ResolutionService,
+        modifiers: ModifierService,
     ) -> None:
         self._conn = conn
         self._ledger = ledger
         self._rng = rng
         self._resolution = resolution
+        self._modifiers = modifiers
 
     def perform(self, player: Player, action: ActionName) -> ActionOutcome | None:
         if action not in _ACTION_STATS:
@@ -115,13 +118,9 @@ class GameplayService:
     def _roll(self, player: Player, action: ActionName) -> bool:
         stat = _ACTION_STATS[action]
         if stat is None:
-            return self._rng.chance(0.5)
-        row = self._conn.execute(
-            f"SELECT {stat} AS value FROM players WHERE id = ?", (player.id,)
-        ).fetchone()
-        if row is None:
-            raise LookupError(f"investigator {player.id!r} no longer exists")
-        return self._rng.randint(1, 6) + int(row["value"]) >= STAT_CHECK_TARGET
+            return self._rng.chance(self._modifiers.investigate_chance(player.id))
+        effective_stat = self._modifiers.effective_stat(player.id, stat)
+        return self._rng.randint(1, 6) + effective_stat >= STAT_CHECK_TARGET
 
     @staticmethod
     def render(outcome: ActionOutcome | None) -> list[str]:
