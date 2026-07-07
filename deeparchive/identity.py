@@ -105,6 +105,31 @@ class IdentityResolver:
             logger.debug("resolved nick %s -> existing account %s", nick, account)
             return player
 
+        # JOIN/account-notify ordering can expose a nick before its account.
+        # Adopt that nick-only investigator instead of attempting a second
+        # player whose nick_map insert would violate the unique nick key.
+        nick_row = self._conn.execute(
+            "SELECT p.id, p.account, p.display_nick "
+            "FROM nick_map AS n JOIN players AS p ON p.id = n.player_id "
+            "WHERE n.nick = ?",
+            (nick,),
+        ).fetchone()
+        if nick_row is not None and nick_row["account"] is None:
+            self._conn.execute(
+                "UPDATE players SET account = ? WHERE id = ? AND account IS NULL",
+                (account, nick_row["id"]),
+            )
+            self._conn.commit()
+            logger.info(
+                "associated account %s with existing player %s (nick %s)",
+                account,
+                nick_row["id"],
+                nick,
+            )
+            return Player(
+                id=nick_row["id"], account=account, display_nick=nick_row["display_nick"]
+            )
+
         # New investigator, identified by account from the start.
         player = self._create_player(nick=nick, account=account)
         logger.info("new investigator %s via account %s", player.id, account)
@@ -246,7 +271,7 @@ class IdentityResolver:
         account = account.strip()
         if not account or account == NO_ACCOUNT:
             return None
-        return account
+        return account.casefold()
 
     def _load_player(self, player_id: str) -> Player | None:
         row = self._conn.execute(
@@ -282,25 +307,30 @@ class IdentityResolver:
     def _create_player(self, nick: str, account: str | None) -> Player:
         player_id = str(uuid.uuid4())
         background = self._backgrounds.choose()
-        self._conn.execute(
-            "INSERT INTO players "
-            "(id, account, display_nick, background_key, wit, strength, occultism) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (
-                player_id,
-                account,
-                nick,
-                background.key,
-                background.stats["wit"],
-                background.stats["strength"],
-                background.stats["occultism"],
-            ),
-        )
-        self._conn.execute(
-            "INSERT INTO nick_map (nick, player_id) VALUES (?, ?)",
-            (nick, player_id),
-        )
-        self._conn.commit()
+        try:
+            self._conn.execute(
+                "INSERT INTO players "
+                "(id, account, display_nick, background_key, wit, strength, occultism) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    player_id,
+                    account,
+                    nick,
+                    background.key,
+                    background.stats["wit"],
+                    background.stats["strength"],
+                    background.stats["occultism"],
+                ),
+            )
+            self._conn.execute(
+                "INSERT INTO nick_map (nick, player_id) VALUES (?, ?) "
+                "ON CONFLICT(nick) DO UPDATE SET player_id = excluded.player_id",
+                (nick, player_id),
+            )
+            self._conn.commit()
+        except Exception:
+            self._conn.rollback()
+            raise
         return Player(id=player_id, account=account, display_nick=nick)
 
     def _ensure_background(self, player_id: str) -> None:

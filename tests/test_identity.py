@@ -55,6 +55,27 @@ class TestResolveIdentityAccountBranch:
         assert second.id == first.id  # same player, not a new one
         assert second.account is None
 
+    def test_account_join_adopts_existing_nick_only_player(self, resolver):
+        first = resolver.resolve_identity("liveuser", None)
+        identified = resolver.resolve_identity("liveuser", "LiveAccount")
+        assert identified.id == first.id
+        assert identified.account == "liveaccount"
+        assert resolver.count_investigators() == 1
+        assert resolver.count_tracked_nicks() == 1
+
+    def test_account_lookup_is_case_insensitive(self, resolver):
+        first = resolver.resolve_identity("alice", "AliceAccount")
+        second = resolver.resolve_identity("alice_away", "ALICEACCOUNT")
+        assert second.id == first.id
+        assert resolver.count_investigators() == 1
+
+    def test_new_account_can_reclaim_nick_mapping(self, resolver):
+        old = resolver.resolve_identity("shared", "old_account")
+        new = resolver.resolve_identity("shared", "new_account")
+        assert new.id != old.id
+        resolved = resolver.resolve_identity("shared", "new_account")
+        assert resolved.id == new.id
+
 
 class TestResolveIdentityNickBranch:
     """No account: fall back to nick_map."""
