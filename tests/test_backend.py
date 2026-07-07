@@ -33,6 +33,22 @@ class TestHandleMessage:
     def test_non_command_returns_empty(self, backend):
         assert backend.handle_message("alice", None, "hello there") == []
 
+    def test_help_summarizes_game_and_commands(self, backend):
+        replies = backend.handle_message("alice", None, "!help")
+        assert len(replies) == 2
+        assert "one File at a time" in replies[0]
+        for command in (
+            "!case",
+            "!profile",
+            "!room",
+            "!investigate",
+            "!interview",
+            "!force",
+            "!ritual",
+            "!confront",
+        ):
+            assert command in replies[1]
+
     def test_profile_returns_personnel_file(self, backend):
         replies = backend.handle_message("alice", None, "!profile")
         assert replies == [

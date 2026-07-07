@@ -25,6 +25,7 @@ Never increase the public command count without updating SPEC.md.
 
 Player commands:
 
+- !help
 - !case
 - !profile
 - !room

@@ -157,6 +157,17 @@ class BotBackend:
                 return ["No personnel file bears that name."]
         return render_profile(self._profiles.get(target))
 
+    def handle_help(self, player: Player, parsed: ParsedCommand) -> list[str]:
+        """Summarize the game loop and the complete player command surface."""
+        return [
+            f"The Archive opens one File at a time. You have {self._actions.limit} "
+            "actions each day; gather evidence, endure the consequences, and close "
+            "the File.",
+            "Commands: !case current File · !profile [nick] personnel file · "
+            "!room Archive · !investigate luck · !interview Wit · !force Strength · "
+            "!ritual Occultism · !confront Sealed Files",
+        ]
+
     def handle_case(self, player: Player, parsed: ParsedCommand) -> list[str]:
         """Describe the current File without exposing hidden mechanics."""
         return self._files.describe_active()
@@ -229,6 +240,7 @@ class BotBackend:
     # Gameplay commands not yet implemented point at ``handle_stub``; their
     # phases will repoint the entry to a real handler.
     _dispatch: dict = {
+        "help": handle_help,
         "profile": handle_profile,
         "case": handle_case,
         "room": handle_room,
