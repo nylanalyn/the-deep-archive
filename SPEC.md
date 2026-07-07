@@ -55,6 +55,7 @@ Accounts recover links the bot missed. Pure-nick users do not.
 ## Commands
 
 Player:
+- !help
 - !case
 - !profile [nick]
 - !room
@@ -68,6 +69,8 @@ Sealed Files only:
 
 No !joincase.
 No !assist.
+
+`!help` gives a two-line summary of the game loop and command surface.
 
 ## Stats
 

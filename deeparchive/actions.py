@@ -39,6 +39,10 @@ class DailyActionLedger:
         self._limit = limit
         self._clock = clock or (lambda: datetime.now(timezone.utc))
 
+    @property
+    def limit(self) -> int:
+        return self._limit
+
     def day_key(self) -> str:
         now = self._clock()
         if now.tzinfo is None:

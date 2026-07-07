@@ -16,6 +16,7 @@ from dataclasses import dataclass
 # Context-gated commands (!confront) are not in the ordinary command set.
 PLAYER_COMMANDS: frozenset[str] = frozenset(
     {
+        "help",
         "case",
         "profile",
         "room",

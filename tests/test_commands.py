@@ -64,7 +64,16 @@ class TestCommandSurface:
     def test_player_commands_match_spec(self):
         # This must match SPEC.md's command list exactly.
         assert PLAYER_COMMANDS == frozenset(
-            {"case", "profile", "room", "investigate", "interview", "force", "ritual"}
+            {
+                "help",
+                "case",
+                "profile",
+                "room",
+                "investigate",
+                "interview",
+                "force",
+                "ritual",
+            }
         )
 
     def test_reserved_commands(self):
