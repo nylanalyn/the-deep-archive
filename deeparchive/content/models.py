@@ -1,4 +1,4 @@
-"""Dataclasses modeling the four content domains, with validation.
+"""Dataclasses modeling the content domains, with validation.
 
 These are pure shapes; file loading lives in :mod:`deeparchive.content.loader`.
 Factory functions (``ScarDefinition.from_dict`` etc.) are the contract
@@ -119,6 +119,45 @@ class StatModifier:
                 f"{context}: modifier.delta must be an integer, got {delta!r}"
             )
         return cls(stat=stat, delta=delta)
+
+
+@dataclass(frozen=True, slots=True)
+class BackgroundDefinition:
+    """A weighted personnel background and its initial stat spread."""
+
+    key: str
+    name: str
+    description: str
+    weight: int
+    stats: dict[str, int]
+
+    @classmethod
+    def from_dict(cls, key: str, raw: dict[str, Any]) -> "BackgroundDefinition":
+        name = raw.get("name")
+        description = raw.get("description")
+        weight = raw.get("weight")
+        stats = raw.get("stats")
+        if not isinstance(name, str) or not name:
+            raise ContentError(f"background {key!r}: name must be a non-empty string")
+        if not isinstance(description, str) or not description:
+            raise ContentError(
+                f"background {key!r}: description must be a non-empty string"
+            )
+        if not isinstance(weight, int) or isinstance(weight, bool) or weight < 1:
+            raise ContentError(f"background {key!r}: weight must be a positive integer")
+        if not isinstance(stats, dict) or set(stats) != VALID_STATS:
+            raise ContentError(
+                f"background {key!r}: stats must contain exactly {sorted(VALID_STATS)}"
+            )
+        if any(not isinstance(value, int) or isinstance(value, bool) for value in stats.values()):
+            raise ContentError(f"background {key!r}: stat values must be integers")
+        return cls(
+            key=key,
+            name=name,
+            description=description,
+            weight=weight,
+            stats={stat: int(stats[stat]) for stat in VALID_STATS},
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -359,11 +398,12 @@ class ContentPack:
     themes: dict[str, ThemeDefinition]
     scars: dict[str, ScarDefinition]
     relics: dict[str, RelicDefinition]
+    backgrounds: dict[str, BackgroundDefinition]
     fragments: FragmentLibrary
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "ContentPack":
-        """Build a ContentPack from four parsed TOML tables.
+        """Build a ContentPack from parsed TOML domain tables.
 
         Each domain file (themes.toml, scars.toml, etc.) has a single
         top-level table keyed by the domain name (e.g. ``[themes]`` wrapping
@@ -374,6 +414,7 @@ class ContentPack:
                 "themes": {"darkness": {...}, "flood": {...}},
                 "scars": {"paper_bones": {...}},
                 "relics": {"brass_lantern": {...}},
+                "backgrounds": {"archivist": {...}},
                 "fragments": {...},   # FragmentLibrary's raw shape
             }
 
@@ -383,6 +424,7 @@ class ContentPack:
         themes_raw = raw.get("themes", {})
         scars_raw = raw.get("scars", {})
         relics_raw = raw.get("relics", {})
+        backgrounds_raw = raw.get("backgrounds", {})
         fragments_raw = raw.get("fragments", {})
 
         if not isinstance(themes_raw, dict):
@@ -391,6 +433,8 @@ class ContentPack:
             raise ContentError("scars must be a table")
         if not isinstance(relics_raw, dict):
             raise ContentError("relics must be a table")
+        if not isinstance(backgrounds_raw, dict):
+            raise ContentError("backgrounds must be a table")
         if not isinstance(fragments_raw, dict):
             raise ContentError("fragments must be a table")
 
@@ -406,6 +450,10 @@ class ContentPack:
             key: RelicDefinition.from_dict(key, val)
             for key, val in relics_raw.items()
         }
+        backgrounds = {
+            key: BackgroundDefinition.from_dict(key, val)
+            for key, val in backgrounds_raw.items()
+        }
         fragments = FragmentLibrary.from_dict(fragments_raw)
 
         # Minimum viable pack: the engine cannot open without at least one
@@ -415,6 +463,8 @@ class ContentPack:
         # aggregate enforces what the running Archive actually needs.
         if not themes:
             raise ContentError("ContentPack requires at least one theme")
+        if not backgrounds:
+            raise ContentError("ContentPack requires at least one background")
         if "default" not in fragments.file_openings:
             raise ContentError(
                 "ContentPack requires fragments.file_openings.default "
@@ -434,7 +484,13 @@ class ContentPack:
                 f"ContentPack fragments.resolution_tiers missing: {missing_tiers}"
             )
 
-        return cls(themes=themes, scars=scars, relics=relics, fragments=fragments)
+        return cls(
+            themes=themes,
+            scars=scars,
+            relics=relics,
+            backgrounds=backgrounds,
+            fragments=fragments,
+        )
 
     @classmethod
     def from_files(cls, domains: dict[str, dict[str, Any]]) -> "ContentPack":

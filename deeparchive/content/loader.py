@@ -9,7 +9,13 @@ from typing import Protocol
 
 from deeparchive.content.models import ContentError, ContentPack
 
-CONTENT_DOMAINS: tuple[str, ...] = ("themes", "scars", "relics", "fragments")
+CONTENT_DOMAINS: tuple[str, ...] = (
+    "themes",
+    "scars",
+    "relics",
+    "backgrounds",
+    "fragments",
+)
 
 
 class _ContentRoot(Protocol):

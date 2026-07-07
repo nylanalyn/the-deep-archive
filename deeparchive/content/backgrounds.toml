@@ -1,0 +1,31 @@
+# Personnel backgrounds assigned when an investigator is first catalogued.
+
+[backgrounds.archivist]
+name = "Archivist"
+description = "Records, clues, and catalogues have taught you what to notice."
+weight = 5
+stats = { wit = 2, strength = 0, occultism = 1 }
+
+[backgrounds.occultist]
+name = "Occultist"
+description = "You recognize symbols that should have remained anonymous."
+weight = 5
+stats = { wit = 1, strength = 0, occultism = 2 }
+
+[backgrounds.custodian]
+name = "Custodian"
+description = "You know which doors stick and where the pipes begin to whisper."
+weight = 5
+stats = { wit = 0, strength = 2, occultism = 1 }
+
+[backgrounds.skeptic]
+name = "Skeptic"
+description = "Disbelief is poor armor, but you have learned to wear it well."
+weight = 4
+stats = { wit = 2, strength = 1, occultism = 0 }
+
+[backgrounds.gambler]
+name = "Gambler"
+description = "You have survived by knowing when the odds are lying."
+weight = 1
+stats = { wit = 1, strength = 1, occultism = 1 }

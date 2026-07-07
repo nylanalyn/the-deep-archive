@@ -22,6 +22,7 @@ def backend(migrated_conn):
         channel="#the-deep-archive",
         content=load_content(),
         rng=Rng(42),
+        background_rng=Rng(42),
     )
 
 
@@ -35,8 +36,9 @@ class TestHandleMessage:
         replies = backend.handle_message("alice", None, "!profile")
         assert replies == [
             "Personnel file: alice — Newly Catalogued.",
-            "Wit 0 · Strength 0 · Occultism 0.",
+            "Wit 2 · Strength 0 · Occultism 1.",
             "Actions remaining today: 5.",
+            "Background: Archivist · Completed Files: 0.",
             "Scars: none recorded.",
         ]
 
@@ -78,6 +80,7 @@ class TestHandleMessage:
             "Personnel file: alice — Marked Investigator.",
             "Wit 2 · Strength -1 · Occultism 1.",
             "Actions remaining today: 5.",
+            "Background: Archivist · Completed Files: 0.",
             "Scars: One eye is cold glass.",
         ]
 
@@ -105,6 +108,16 @@ class TestHandleMessage:
         backend.handle_message("alice", None, "!investigate")
         replies = backend.handle_message("alice", None, "!profile")
         assert "Actions remaining today: 4." in replies
+
+    def test_ready_file_resolves_without_consuming_action(self, backend, migrated_conn):
+        migrated_conn.execute(
+            "UPDATE active_file SET successes = success_threshold WHERE id = 1"
+        )
+        migrated_conn.commit()
+        replies = backend.handle_message("alice", None, "!investigate")
+        assert any(line.startswith("New File:") for line in replies)
+        profile = backend.handle_message("alice", None, "!profile")
+        assert "Actions remaining today: 5." in profile
 
     def test_unknown_command_gets_atmospheric_reply(self, backend):
         replies = backend.handle_message("alice", None, "!frobnicate")

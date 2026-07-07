@@ -8,6 +8,7 @@ from typing import Literal, Protocol
 
 from deeparchive.actions import DailyActionLedger
 from deeparchive.identity import Player
+from deeparchive.resolution import ResolutionOutcome, ResolutionService
 
 ActionName = Literal["investigate", "interview", "force", "ritual"]
 STAT_CHECK_TARGET = 4
@@ -22,8 +23,9 @@ class RandomSource(Protocol):
 @dataclass(frozen=True, slots=True)
 class ActionOutcome:
     action: ActionName
-    success: bool
+    success: bool | None
     remaining_actions: int
+    resolution: ResolutionOutcome | None = None
 
 
 _ACTION_STATS: dict[ActionName, str | None] = {
@@ -56,10 +58,12 @@ class GameplayService:
         conn: sqlite3.Connection,
         ledger: DailyActionLedger,
         rng: RandomSource,
+        resolution: ResolutionService,
     ) -> None:
         self._conn = conn
         self._ledger = ledger
         self._rng = rng
+        self._resolution = resolution
 
     def perform(self, player: Player, action: ActionName) -> ActionOutcome | None:
         if action not in _ACTION_STATS:
@@ -67,6 +71,11 @@ class GameplayService:
 
         try:
             self._conn.execute("BEGIN IMMEDIATE")
+            ready = self._resolution.resolve_if_ready()
+            if ready is not None:
+                remaining = self._ledger.allowance(player.id).remaining
+                self._conn.execute("COMMIT")
+                return ActionOutcome(action, None, remaining, ready)
             allowance = self._ledger.consume(player.id)
             if allowance is None:
                 self._conn.execute("ROLLBACK")
@@ -85,6 +94,11 @@ class GameplayService:
                 )
             if update.rowcount != 1:
                 raise RuntimeError("no active File to receive action outcome")
+            self._conn.execute(
+                "INSERT OR IGNORE INTO active_file_participants (player_id) VALUES (?)",
+                (player.id,),
+            )
+            resolution = self._resolution.resolve_if_ready()
             self._conn.execute("COMMIT")
         except Exception:
             if self._conn.in_transaction:
@@ -95,6 +109,7 @@ class GameplayService:
             action=action,
             success=success,
             remaining_actions=allowance.remaining,
+            resolution=resolution,
         )
 
     def _roll(self, player: Player, action: ActionName) -> bool:
@@ -112,10 +127,17 @@ class GameplayService:
     def render(outcome: ActionOutcome | None) -> list[str]:
         if outcome is None:
             return ["Your allowance is spent. Return after the day turns."]
+        if outcome.success is None:
+            if outcome.resolution is None:
+                raise RuntimeError("resolution guard produced no resolution")
+            return list(outcome.resolution.lines)
         text = (
             _SUCCESS_TEXT[outcome.action]
             if outcome.success
             else _FAILURE_TEXT[outcome.action]
         )
         noun = "action" if outcome.remaining_actions == 1 else "actions"
-        return [f"{text} {outcome.remaining_actions} {noun} remain today."]
+        lines = [f"{text} {outcome.remaining_actions} {noun} remain today."]
+        if outcome.resolution is not None:
+            lines.extend(outcome.resolution.lines)
+        return lines

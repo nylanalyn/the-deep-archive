@@ -8,6 +8,7 @@ Each domain is one TOML file:
 - themes.toml    — File themes (the spine of case generation)
 - scars.toml     — permanent investigator trade-offs
 - relics.toml    — communal relics with effect lists
+- backgrounds.toml — weighted investigator backgrounds and starting stats
 - fragments.toml — hand-authored atmospheric prose
 """
 

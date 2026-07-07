@@ -10,6 +10,7 @@ from deeparchive.files import FileService
 from deeparchive.gameplay import GameplayService
 from deeparchive.identity import IdentityResolver
 from deeparchive.rng import Rng
+from deeparchive.resolution import ResolutionService
 
 
 class FixedRng:
@@ -27,15 +28,22 @@ class FixedRng:
         return self.chance_result
 
 
-def _setup(migrated_conn, rng: FixedRng):
-    FileService(migrated_conn, load_content(), Rng(1)).ensure_active()
-    player = IdentityResolver(migrated_conn).resolve_identity("alice", None)
+def _setup(migrated_conn, rng: FixedRng, background_assigner):
+    content = load_content()
+    FileService(migrated_conn, content, Rng(1)).ensure_active()
+    player = IdentityResolver(migrated_conn, background_assigner).resolve_identity("alice", None)
+    migrated_conn.execute(
+        "UPDATE players SET wit = 0, strength = 0, occultism = 0 WHERE id = ?",
+        (player.id,),
+    )
+    migrated_conn.commit()
     ledger = DailyActionLedger(migrated_conn)
-    return player, ledger, GameplayService(migrated_conn, ledger, rng)
+    resolution = ResolutionService(migrated_conn, content, Rng(2))
+    return player, ledger, GameplayService(migrated_conn, ledger, rng, resolution)
 
 
-def test_success_updates_successes_and_clues(migrated_conn) -> None:
-    player, _, gameplay = _setup(migrated_conn, FixedRng(die=4))
+def test_success_updates_successes_and_clues(migrated_conn, background_assigner) -> None:
+    player, _, gameplay = _setup(migrated_conn, FixedRng(die=4), background_assigner)
     outcome = gameplay.perform(player, "interview")
     row = migrated_conn.execute(
         "SELECT successes, failures, danger, clue_count FROM active_file"
@@ -44,8 +52,8 @@ def test_success_updates_successes_and_clues(migrated_conn) -> None:
     assert tuple(row) == (1, 0, 0, 1)
 
 
-def test_failure_updates_failures_and_danger(migrated_conn) -> None:
-    player, _, gameplay = _setup(migrated_conn, FixedRng(die=3))
+def test_failure_updates_failures_and_danger(migrated_conn, background_assigner) -> None:
+    player, _, gameplay = _setup(migrated_conn, FixedRng(die=3), background_assigner)
     outcome = gameplay.perform(player, "force")
     row = migrated_conn.execute(
         "SELECT successes, failures, danger, clue_count FROM active_file"
@@ -54,17 +62,17 @@ def test_failure_updates_failures_and_danger(migrated_conn) -> None:
     assert tuple(row) == (0, 1, 1, 0)
 
 
-def test_player_stat_changes_check_result(migrated_conn) -> None:
-    player, _, gameplay = _setup(migrated_conn, FixedRng(die=3))
+def test_player_stat_changes_check_result(migrated_conn, background_assigner) -> None:
+    player, _, gameplay = _setup(migrated_conn, FixedRng(die=3), background_assigner)
     migrated_conn.execute("UPDATE players SET wit = 1 WHERE id = ?", (player.id,))
     migrated_conn.commit()
     outcome = gameplay.perform(player, "interview")
     assert outcome is not None and outcome.success
 
 
-def test_investigate_uses_half_chance(migrated_conn) -> None:
+def test_investigate_uses_half_chance(migrated_conn, background_assigner) -> None:
     rng = FixedRng(chance=False)
-    player, _, gameplay = _setup(migrated_conn, rng)
+    player, _, gameplay = _setup(migrated_conn, rng, background_assigner)
     outcome = gameplay.perform(player, "investigate")
     assert outcome is not None and not outcome.success
     assert rng.last_probability == 0.5
@@ -74,8 +82,8 @@ def test_investigate_uses_half_chance(migrated_conn) -> None:
     ("action", "stat"),
     [("interview", "wit"), ("force", "strength"), ("ritual", "occultism")],
 )
-def test_each_command_uses_its_own_stat(migrated_conn, action, stat) -> None:
-    player, _, gameplay = _setup(migrated_conn, FixedRng(die=1))
+def test_each_command_uses_its_own_stat(migrated_conn, background_assigner, action, stat) -> None:
+    player, _, gameplay = _setup(migrated_conn, FixedRng(die=1), background_assigner)
     migrated_conn.execute(
         f"UPDATE players SET {stat} = 3 WHERE id = ?", (player.id,)
     )
@@ -84,8 +92,8 @@ def test_each_command_uses_its_own_stat(migrated_conn, action, stat) -> None:
     assert outcome is not None and outcome.success
 
 
-def test_exhausted_action_does_not_change_file(migrated_conn) -> None:
-    player, ledger, gameplay = _setup(migrated_conn, FixedRng(die=4))
+def test_exhausted_action_does_not_change_file(migrated_conn, background_assigner) -> None:
+    player, ledger, gameplay = _setup(migrated_conn, FixedRng(die=4), background_assigner)
     for _ in range(5):
         assert gameplay.perform(player, "interview") is not None
     before = migrated_conn.execute("SELECT * FROM active_file").fetchone()
@@ -95,10 +103,35 @@ def test_exhausted_action_does_not_change_file(migrated_conn) -> None:
     assert ledger.allowance(player.id).used == 5
 
 
-def test_file_update_failure_rolls_back_action(migrated_conn) -> None:
-    player = IdentityResolver(migrated_conn).resolve_identity("alice", None)
+def test_file_update_failure_rolls_back_action(migrated_conn, background_assigner) -> None:
+    player = IdentityResolver(migrated_conn, background_assigner).resolve_identity("alice", None)
     ledger = DailyActionLedger(migrated_conn)
-    gameplay = GameplayService(migrated_conn, ledger, FixedRng())
+    gameplay = GameplayService(
+        migrated_conn,
+        ledger,
+        FixedRng(),
+        ResolutionService(migrated_conn, load_content(), Rng(2)),
+    )
     with pytest.raises(RuntimeError, match="no active File"):
         gameplay.perform(player, "interview")
     assert ledger.allowance(player.id).used == 0
+
+
+def test_threshold_crossing_resolves_and_opens_next_file(
+    migrated_conn, background_assigner
+) -> None:
+    player, ledger, gameplay = _setup(migrated_conn, FixedRng(die=4), background_assigner)
+    old_seed = migrated_conn.execute("SELECT seed FROM active_file").fetchone()[0]
+    migrated_conn.execute(
+        "UPDATE active_file SET success_threshold = 1 WHERE id = 1"
+    )
+    migrated_conn.commit()
+
+    outcome = gameplay.perform(player, "interview")
+
+    assert outcome is not None and outcome.success
+    assert outcome.resolution is not None
+    assert ledger.allowance(player.id).used == 1
+    assert migrated_conn.execute("SELECT COUNT(*) FROM file_history").fetchone()[0] == 1
+    new_seed = migrated_conn.execute("SELECT seed FROM active_file").fetchone()[0]
+    assert new_seed != old_seed

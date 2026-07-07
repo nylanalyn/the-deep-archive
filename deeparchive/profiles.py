@@ -6,6 +6,7 @@ import sqlite3
 from dataclasses import dataclass
 
 from deeparchive.actions import DailyActionLedger
+from deeparchive.content.models import ContentPack
 from deeparchive.identity import Player
 
 
@@ -19,6 +20,8 @@ class Profile:
     occultism: int
     scars: tuple[str, ...]
     actions_remaining: int
+    background: str
+    completed_files: int
 
     @property
     def personnel_status(self) -> str:
@@ -30,14 +33,19 @@ class ProfileRepository:
     """Read personnel files from a migrated Archive database."""
 
     def __init__(
-        self, conn: sqlite3.Connection, action_ledger: DailyActionLedger
+        self,
+        conn: sqlite3.Connection,
+        action_ledger: DailyActionLedger,
+        content: ContentPack,
     ) -> None:
         self._conn = conn
         self._action_ledger = action_ledger
+        self._content = content
 
     def get(self, player: Player) -> Profile:
         row = self._conn.execute(
-            "SELECT wit, strength, occultism FROM players WHERE id = ?",
+            "SELECT wit, strength, occultism, background_key, completed_files "
+            "FROM players WHERE id = ?",
             (player.id,),
         ).fetchone()
         if row is None:
@@ -48,6 +56,8 @@ class ProfileRepository:
             "ORDER BY acquired_at, id",
             (player.id,),
         ).fetchall()
+        background = self._content.backgrounds.get(str(row["background_key"]))
+        background_name = background.name if background is not None else "Unassigned"
         return Profile(
             player=player,
             wit=int(row["wit"]),
@@ -55,6 +65,8 @@ class ProfileRepository:
             occultism=int(row["occultism"]),
             scars=tuple(str(scar["description"]) for scar in scar_rows),
             actions_remaining=self._action_ledger.allowance(player.id).remaining,
+            background=background_name,
+            completed_files=int(row["completed_files"]),
         )
 
 
@@ -67,6 +79,7 @@ def render_profile(profile: Profile) -> list[str]:
             f"Occultism {profile.occultism}."
         ),
         f"Actions remaining today: {profile.actions_remaining}.",
+        f"Background: {profile.background} · Completed Files: {profile.completed_files}.",
     ]
     if profile.scars:
         lines.append(f"Scars: {'; '.join(profile.scars)}")

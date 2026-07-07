@@ -46,7 +46,7 @@ def _minimum_fragments() -> dict:
 def _load_shipped() -> ContentPack:
     """Load all four shipped TOML files into a ContentPack."""
     domains: dict[str, dict] = {}
-    for name in ("themes", "scars", "relics", "fragments"):
+    for name in ("themes", "scars", "relics", "backgrounds", "fragments"):
         path = SHIPPED_CONTENT_DIR / f"{name}.toml"
         with path.open("rb") as f:
             domains[name] = tomllib.load(f)
@@ -66,6 +66,7 @@ class TestShippedContent:
         assert len(pack.themes) >= 1
         assert len(pack.scars) >= 1
         assert len(pack.relics) >= 1
+        assert len(pack.backgrounds) >= 1
         assert len(pack.fragments.file_openings) >= 1
 
     def test_themes_have_expected_keys(self):
@@ -391,6 +392,7 @@ class TestContentPack:
                 "themes": {"themes": {"darkness": {"name": "Darkness", "tags": [], "locations": ["a"], "title_parts": {"noun": ["x"]}}}},
                 "scars": {"scars": {"x": {"name": "X", "description": "d", "modifiers": []}}},
                 "relics": {"relics": {"y": {"name": "Y", "description": "d", "tags": [], "effects": []}}},
+                "backgrounds": {"backgrounds": {"archivist": {"name": "Archivist", "description": "d", "weight": 1, "stats": {"wit": 2, "strength": 0, "occultism": 1}}}},
                 "fragments": _minimum_fragments(),
             }
         )
@@ -406,6 +408,7 @@ class TestContentPack:
                 "themes": {"darkness": {"name": "Darkness", "tags": [], "locations": ["a"], "title_parts": {"noun": ["x"]}}},
                 "scars": {},
                 "relics": {},
+                "backgrounds": {"archivist": {"name": "Archivist", "description": "d", "weight": 1, "stats": {"wit": 2, "strength": 0, "occultism": 1}}},
                 "fragments": _minimum_fragments(),
             }
         )
@@ -441,6 +444,7 @@ class TestContentPack:
             },
             "scars": {},
             "relics": {},
+            "backgrounds": {"archivist": {"name": "Archivist", "description": "d", "weight": 1, "stats": {"wit": 2, "strength": 0, "occultism": 1}}},
             "fragments": _minimum_fragments(),
         }
         mutate(raw)

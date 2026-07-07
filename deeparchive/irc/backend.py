@@ -17,6 +17,7 @@ from datetime import datetime
 from typing import cast
 
 from deeparchive.actions import DailyActionLedger
+from deeparchive.backgrounds import BackgroundAssigner
 from deeparchive.content.models import ContentPack
 from deeparchive.content import load_content
 from deeparchive.files import FileService
@@ -24,6 +25,7 @@ from deeparchive.gameplay import ActionName, GameplayService
 from deeparchive.identity import IdentityResolver, Player
 from deeparchive.irc.commands import ParsedCommand, parse_command
 from deeparchive.profiles import ProfileRepository, render_profile
+from deeparchive.resolution import ResolutionService
 from deeparchive.rng import Rng, make_rng
 
 logger = logging.getLogger(__name__)
@@ -46,10 +48,15 @@ class BotBackend:
         day_boundary_timezone: str = "UTC",
         actions_per_day: int = 5,
         clock: Callable[[], datetime] | None = None,
+        background_rng: Rng | None = None,
     ) -> None:
         self._conn = conn
         self._channel = channel
-        self._resolver = IdentityResolver(conn)
+        content_pack = content or load_content()
+        self._resolver = IdentityResolver(
+            conn,
+            BackgroundAssigner(content_pack, background_rng or make_rng()),
+        )
         action_rng = rng or make_rng()
         self._actions = DailyActionLedger(
             conn,
@@ -57,9 +64,12 @@ class BotBackend:
             limit=actions_per_day,
             clock=clock,
         )
-        self._profiles = ProfileRepository(conn, self._actions)
-        self._files = FileService(conn, content or load_content(), action_rng)
-        self._gameplay = GameplayService(conn, self._actions, action_rng)
+        self._profiles = ProfileRepository(conn, self._actions, content_pack)
+        self._files = FileService(conn, content_pack, action_rng)
+        self._resolution = ResolutionService(conn, content_pack, action_rng)
+        self._gameplay = GameplayService(
+            conn, self._actions, action_rng, self._resolution
+        )
         # A File always exists, including immediately after a clean startup.
         self._files.ensure_active()
         # ``quiet`` is set by the admin dispatcher to silence all player-facing
