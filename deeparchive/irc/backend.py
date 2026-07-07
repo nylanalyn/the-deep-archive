@@ -12,10 +12,15 @@ so the full routing path remains proven end-to-end.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
+from datetime import datetime
+from typing import cast
 
+from deeparchive.actions import DailyActionLedger
 from deeparchive.content.models import ContentPack
 from deeparchive.content import load_content
 from deeparchive.files import FileService
+from deeparchive.gameplay import ActionName, GameplayService
 from deeparchive.identity import IdentityResolver, Player
 from deeparchive.irc.commands import ParsedCommand, parse_command
 from deeparchive.profiles import ProfileRepository, render_profile
@@ -38,12 +43,23 @@ class BotBackend:
         channel: str,
         content: ContentPack | None = None,
         rng: Rng | None = None,
+        day_boundary_timezone: str = "UTC",
+        actions_per_day: int = 5,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._conn = conn
         self._channel = channel
         self._resolver = IdentityResolver(conn)
-        self._profiles = ProfileRepository(conn)
-        self._files = FileService(conn, content or load_content(), rng or make_rng())
+        action_rng = rng or make_rng()
+        self._actions = DailyActionLedger(
+            conn,
+            timezone_name=day_boundary_timezone,
+            limit=actions_per_day,
+            clock=clock,
+        )
+        self._profiles = ProfileRepository(conn, self._actions)
+        self._files = FileService(conn, content or load_content(), action_rng)
+        self._gameplay = GameplayService(conn, self._actions, action_rng)
         # A File always exists, including immediately after a clean startup.
         self._files.ensure_active()
         # ``quiet`` is set by the admin dispatcher to silence all player-facing
@@ -122,13 +138,17 @@ class BotBackend:
         """Describe the current File without exposing hidden mechanics."""
         return self._files.describe_active()
 
+    def handle_action(self, player: Player, parsed: ParsedCommand) -> list[str]:
+        """Resolve one of the four Phase 6 File actions."""
+        action = cast(ActionName, parsed.name)
+        return self._gameplay.render(self._gameplay.perform(player, action))
+
     def handle_stub(self, player: Player, parsed: ParsedCommand) -> list[str]:
         """Atmospheric placeholder for gameplay commands not yet built.
 
-        Used for !room, !investigate, !interview, !force, and !ritual until
-        their phases ship. The line is deliberately clearly-placeholder so
-        it reads as "under construction" in the Archivist's voice, not as a
-        real piece of fiction.
+        Used for !room until its Archive-flavour phase ships. The line is
+        deliberately clearly-placeholder so it reads as "under construction"
+        in the Archivist's voice, not as a real piece of fiction.
         """
         return ["The Archive is still being catalogued. Check back soon."]
 
@@ -183,8 +203,8 @@ class BotBackend:
         "profile": handle_profile,
         "case": handle_case,
         "room": handle_stub,
-        "investigate": handle_stub,
-        "interview": handle_stub,
-        "force": handle_stub,
-        "ritual": handle_stub,
+        "investigate": handle_action,
+        "interview": handle_action,
+        "force": handle_action,
+        "ritual": handle_action,
     }

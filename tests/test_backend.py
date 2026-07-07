@@ -36,6 +36,7 @@ class TestHandleMessage:
         assert replies == [
             "Personnel file: alice — Newly Catalogued.",
             "Wit 0 · Strength 0 · Occultism 0.",
+            "Actions remaining today: 5.",
             "Scars: none recorded.",
         ]
 
@@ -76,6 +77,7 @@ class TestHandleMessage:
         assert backend.handle_message("alice", None, "!profile") == [
             "Personnel file: alice — Marked Investigator.",
             "Wit 2 · Strength -1 · Occultism 1.",
+            "Actions remaining today: 5.",
             "Scars: One eye is cold glass.",
         ]
 
@@ -89,11 +91,20 @@ class TestHandleMessage:
         second = backend.handle_message("alice", None, "!case")
         assert first == second
 
-    def test_unimplemented_gameplay_commands_return_stub(self, backend):
-        for cmd in ("!room", "!investigate", "!interview", "!force", "!ritual"):
-            replies = backend.handle_message("alice", None, cmd)
-            assert len(replies) == 1
-            assert replies[0] == "The Archive is still being catalogued. Check back soon."
+    def test_room_remains_stub(self, backend):
+        replies = backend.handle_message("alice", None, "!room")
+        assert replies == ["The Archive is still being catalogued. Check back soon."]
+
+    @pytest.mark.parametrize("command", ["investigate", "interview", "force", "ritual"])
+    def test_action_commands_are_live(self, backend, command):
+        replies = backend.handle_message("alice", None, f"!{command}")
+        assert len(replies) == 1
+        assert "remain today" in replies[0]
+
+    def test_profile_reflects_consumed_action(self, backend):
+        backend.handle_message("alice", None, "!investigate")
+        replies = backend.handle_message("alice", None, "!profile")
+        assert "Actions remaining today: 4." in replies
 
     def test_unknown_command_gets_atmospheric_reply(self, backend):
         replies = backend.handle_message("alice", None, "!frobnicate")

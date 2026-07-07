@@ -63,6 +63,7 @@ class IrcConfig:
     channel: str
     sasl: SaslConfig | None
     day_boundary_timezone: str = "UTC"
+    actions_per_day: int = 5
 
 
 @dataclass(frozen=True, slots=True)
@@ -193,6 +194,14 @@ def _build_irc(irc_raw: object, config_path: Path) -> IrcConfig:
     except Exception as e:
         raise ConfigError(f"[irc].day_boundary_timezone {tz!r} is invalid: {e}") from None
 
+    actions_per_day = irc_raw.get("actions_per_day", 5)
+    if (
+        not isinstance(actions_per_day, int)
+        or isinstance(actions_per_day, bool)
+        or actions_per_day < 1
+    ):
+        raise ConfigError("[irc].actions_per_day must be a positive integer")
+
     return IrcConfig(
         server=server,
         port=int(port),
@@ -204,6 +213,7 @@ def _build_irc(irc_raw: object, config_path: Path) -> IrcConfig:
         channel=channel,
         sasl=sasl,
         day_boundary_timezone=tz,
+        actions_per_day=actions_per_day,
     )
 
 
