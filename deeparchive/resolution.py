@@ -130,9 +130,10 @@ class ResolutionService:
             else self._generator.generate()
         )
         self._insert_active(next_file)
+        next_label = "New Sealed File" if next_file.is_sealed else "New File"
         lines.extend(
             (
-                f"New File: {next_file.title} — {next_file.location}.",
+                f"{next_label}: {next_file.title} — {next_file.location}.",
                 next_file.opening_text,
             )
         )

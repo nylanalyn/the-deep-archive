@@ -48,13 +48,18 @@ def test_third_recurring_theme_reveals_sealed_file(migrated_conn) -> None:
     assert not migrated_conn.execute(
         "SELECT is_sealed FROM active_file"
     ).fetchone()[0]
-    _resolve_darkness(migrated_conn, resolution)
+    third = _resolve_darkness(migrated_conn, resolution)
     row = migrated_conn.execute(
         "SELECT is_sealed, arc_key, title FROM active_file"
     ).fetchone()
     assert row["is_sealed"] == 1
     assert row["arc_key"] == "black_index"
     assert row["title"] == content.meta_arcs["black_index"].title
+    assert any(line.startswith("New Sealed File:") for line in third.lines)
+    outcome = migrated_conn.execute(
+        "SELECT COUNT(*) FROM file_history"
+    ).fetchone()[0]
+    assert outcome == 3
 
 
 def _ready_sealed(migrated_conn, background_assigner):
