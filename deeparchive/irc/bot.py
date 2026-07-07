@@ -128,7 +128,10 @@ class ArchivistBot(pydle.Client):
         # fall back to None (nick-only identity) in that case.
         account = self._account_for(by)
         replies = self._backend.handle_message(by, account, message)
-        for line in replies:
+        for index, line in enumerate(replies):
+            delay = self._backend.reply_delay(message, index)
+            if delay:
+                await asyncio.sleep(delay)
             await self.message(target, line)
 
     # ------------------------------------------------------------------

@@ -416,6 +416,11 @@ class FragmentLibrary:
     room_weather: dict[str, tuple[str, ...]] = field(default_factory=dict)
     room_moods: dict[str, tuple[str, ...]] = field(default_factory=dict)
     personnel_titles: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    action_verbs: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    action_targets: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    action_methods: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    action_successes: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    action_failures: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "FragmentLibrary":
@@ -443,6 +448,11 @@ class FragmentLibrary:
             room_weather=parse_section("room_weather"),
             room_moods=parse_section("room_moods"),
             personnel_titles=parse_section("personnel_titles"),
+            action_verbs=parse_section("action_verbs"),
+            action_targets=parse_section("action_targets"),
+            action_methods=parse_section("action_methods"),
+            action_successes=parse_section("action_successes"),
+            action_failures=parse_section("action_failures"),
         )
 
 
@@ -565,6 +575,19 @@ class ContentPack:
             raise ContentError(
                 f"ContentPack fragments.personnel_titles missing: {missing_titles}"
             )
+        action_names = {"investigate", "interview", "force", "ritual"}
+        for section_name, section in (
+            ("action_verbs", fragments.action_verbs),
+            ("action_targets", fragments.action_targets),
+            ("action_methods", fragments.action_methods),
+            ("action_successes", fragments.action_successes),
+            ("action_failures", fragments.action_failures),
+        ):
+            missing_actions = sorted(action_names.difference(section))
+            if missing_actions:
+                raise ContentError(
+                    f"ContentPack fragments.{section_name} missing: {missing_actions}"
+                )
         missing_tiers = [
             tier
             for tier in RESOLUTION_TIERS

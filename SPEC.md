@@ -102,6 +102,10 @@ The day boundary is a single configurable timezone for the whole bot. Default is
 
 Each action updates hidden file state.
 
+Actions are narrated in two beats: a short generated description of the
+attempt, followed by an explicit SUCCESS or FAILURE result. Individual checks
+remain binary; the six broader outcome tiers apply when the whole File closes.
+
 ## Files
 
 Each room always contains exactly one active File.

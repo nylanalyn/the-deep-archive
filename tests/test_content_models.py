@@ -34,7 +34,7 @@ SHIPPED_CONTENT_DIR = Path(__file__).resolve().parent.parent / "deeparchive" / "
 
 
 def _minimum_fragments() -> dict:
-    return {
+    fragments = {
         "file_openings": {"default": ["A new file."]},
         "archive_returns": {"default": ["You return."]},
         "resolution_tiers": {
@@ -50,6 +50,18 @@ def _minimum_fragments() -> dict:
             "marked": ["Marked"],
         },
     }
+    for section in (
+        "action_verbs",
+        "action_targets",
+        "action_methods",
+        "action_successes",
+        "action_failures",
+    ):
+        fragments[section] = {
+            action: [f"{section} {action}"]
+            for action in ("investigate", "interview", "force", "ritual")
+        }
+    return fragments
 
 
 def _load_shipped() -> ContentPack:
@@ -116,6 +128,16 @@ class TestShippedContent:
         assert {"new", "active", "veteran", "marked"}.issubset(
             fragments.personnel_titles
         )
+        actions = {"investigate", "interview", "force", "ritual"}
+        for section in (
+            fragments.action_verbs,
+            fragments.action_targets,
+            fragments.action_methods,
+            fragments.action_successes,
+            fragments.action_failures,
+        ):
+            assert actions.issubset(section)
+            assert all(len(section[action]) >= 5 for action in actions)
 
     def test_fragment_openings_cover_all_themes(self):
         # Every shipped theme should have at least a 'default' fallback, and

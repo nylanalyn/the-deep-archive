@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from deeparchive.actions import DailyActionLedger
+from deeparchive.action_flavour import ActionNarrator
 from deeparchive.content import load_content
 from deeparchive.files import FileService
 from deeparchive.gameplay import GameplayService
@@ -41,7 +42,12 @@ def _setup(migrated_conn, rng: FixedRng, background_assigner):
     ledger = DailyActionLedger(migrated_conn)
     resolution = ResolutionService(migrated_conn, content, Rng(2))
     return player, ledger, GameplayService(
-        migrated_conn, ledger, rng, resolution, ModifierService(migrated_conn)
+        migrated_conn,
+        ledger,
+        rng,
+        resolution,
+        ModifierService(migrated_conn),
+        ActionNarrator(content, Rng(99)),
     )
 
 
@@ -152,6 +158,7 @@ def test_file_update_failure_rolls_back_action(migrated_conn, background_assigne
         FixedRng(),
         ResolutionService(migrated_conn, load_content(), Rng(2)),
         ModifierService(migrated_conn),
+        ActionNarrator(load_content(), Rng(99)),
     )
     with pytest.raises(RuntimeError, match="no active File"):
         gameplay.perform(player, "interview")

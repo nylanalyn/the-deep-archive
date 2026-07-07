@@ -17,6 +17,7 @@ from datetime import datetime
 from typing import cast
 
 from deeparchive.actions import DailyActionLedger
+from deeparchive.action_flavour import ActionNarrator
 from deeparchive.backgrounds import BackgroundAssigner
 from deeparchive.content.models import ContentPack
 from deeparchive.content import load_content
@@ -53,6 +54,7 @@ class BotBackend:
         clock: Callable[[], datetime] | None = None,
         background_rng: Rng | None = None,
         flavour_rng: Rng | None = None,
+        action_flavour_rng: Rng | None = None,
     ) -> None:
         self._conn = conn
         self._channel = channel
@@ -78,7 +80,12 @@ class BotBackend:
             conn, content_pack, flavour_rng or make_rng()
         )
         self._gameplay = GameplayService(
-            conn, self._actions, action_rng, self._resolution, self._modifiers
+            conn,
+            self._actions,
+            action_rng,
+            self._resolution,
+            self._modifiers,
+            ActionNarrator(content_pack, action_flavour_rng or make_rng()),
         )
         self._confrontation = ConfrontationService(
             conn, self._actions, self._modifiers, self._resolution, action_rng
@@ -184,6 +191,18 @@ class BotBackend:
     def handle_confront(self, player: Player, parsed: ParsedCommand) -> list[str]:
         """Attempt the final check on a ready Sealed File."""
         return self._confrontation.confront(player)
+
+    @staticmethod
+    def reply_delay(message: str, reply_index: int) -> float:
+        """Pause between an action's attempt and explicit outcome lines."""
+        parsed = parse_command(message)
+        if (
+            reply_index == 1
+            and parsed is not None
+            and parsed.name in {"investigate", "interview", "force", "ritual"}
+        ):
+            return 1.5
+        return 0.0
 
     def handle_stub(self, player: Player, parsed: ParsedCommand) -> list[str]:
         """Atmospheric placeholder for gameplay commands not yet built.
