@@ -176,6 +176,16 @@ def _build_irc(irc_raw: object, config_path: Path) -> IrcConfig:
     if sasl_raw is not None:
         if not isinstance(sasl_raw, dict):
             raise ConfigError("[irc.sasl] must be a table")
+        misplaced = {
+            key
+            for key in ("day_boundary_timezone", "actions_per_day")
+            if key in sasl_raw
+        }
+        if misplaced:
+            keys = ", ".join(f"[irc].{key}" for key in sorted(misplaced))
+            raise ConfigError(
+                f"{keys} must be declared under [irc], before [irc.sasl]"
+            )
         su = sasl_raw.get("username")
         sp = sasl_raw.get("password")
         if not isinstance(su, str) or not su:

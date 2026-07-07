@@ -183,6 +183,30 @@ class TestValidation:
         with pytest.raises(ConfigError, match="day_boundary_timezone"):
             load_config(path)
 
+    @pytest.mark.parametrize("setting", ["day_boundary_timezone", "actions_per_day"])
+    def test_game_setting_under_sasl_is_rejected(self, tmp_path, setting):
+        value = '"America/New_York"' if setting == "day_boundary_timezone" else "5"
+        path = _write_config(
+            tmp_path,
+            f"""
+            [irc]
+            server = "x"
+            port = 6697
+            nickname = "a"
+            channel = "#a"
+
+            [irc.sasl]
+            username = "a"
+            password = "secret"
+            {setting} = {value}
+
+            [db]
+            path = "x.sqlite3"
+            """,
+        )
+        with pytest.raises(ConfigError, match="must be declared under"):
+            load_config(path)
+
     def test_valid_timezone_accepted(self, tmp_path):
         path = _write_config(
             tmp_path,
