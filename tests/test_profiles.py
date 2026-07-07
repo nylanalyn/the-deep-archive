@@ -10,8 +10,12 @@ from deeparchive.identity import IdentityResolver, Player
 from deeparchive.profiles import ProfileRepository, render_profile
 
 
-def test_profile_repository_reads_persisted_values(migrated_conn) -> None:
-    player = IdentityResolver(migrated_conn).resolve_identity("alice", "account")
+def test_profile_repository_reads_persisted_values(
+    migrated_conn, background_assigner
+) -> None:
+    player = IdentityResolver(migrated_conn, background_assigner).resolve_identity(
+        "alice", "account"
+    )
     migrated_conn.execute(
         "UPDATE players SET wit = 1, strength = 2, occultism = 3 WHERE id = ?",
         (player.id,),

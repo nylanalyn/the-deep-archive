@@ -29,8 +29,6 @@ import uuid
 from dataclasses import dataclass
 
 from deeparchive.backgrounds import BackgroundAssigner
-from deeparchive.content import load_content
-from deeparchive.rng import make_rng
 
 logger = logging.getLogger(__name__)
 
@@ -64,12 +62,10 @@ class IdentityResolver:
     def __init__(
         self,
         conn: sqlite3.Connection,
-        background_assigner: BackgroundAssigner | None = None,
+        background_assigner: BackgroundAssigner,
     ) -> None:
         self._conn = conn
-        self._backgrounds = background_assigner or BackgroundAssigner(
-            load_content(), make_rng()
-        )
+        self._backgrounds = background_assigner
 
     # ------------------------------------------------------------------
     # Resolution

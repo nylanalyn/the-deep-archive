@@ -13,8 +13,8 @@ from deeparchive.identity import IdentityResolver, Player
 
 
 @pytest.fixture
-def resolver(migrated_conn):
-    return IdentityResolver(migrated_conn)
+def resolver(migrated_conn, background_assigner):
+    return IdentityResolver(migrated_conn, background_assigner)
 
 
 class TestResolveIdentityAccountBranch:

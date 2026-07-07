@@ -39,9 +39,11 @@ def _ready_file(migrated_conn, *, failures: int = 0):
     return content, active
 
 
-def test_clean_resolution_shelves_relic_and_opens_next_file(migrated_conn) -> None:
+def test_clean_resolution_shelves_relic_and_opens_next_file(
+    migrated_conn, background_assigner
+) -> None:
     content, old = _ready_file(migrated_conn)
-    player = IdentityResolver(migrated_conn).resolve_identity("alice", None)
+    player = IdentityResolver(migrated_conn, background_assigner).resolve_identity("alice", None)
     migrated_conn.execute(
         "INSERT INTO active_file_participants (player_id) VALUES (?)", (player.id,)
     )
@@ -61,9 +63,9 @@ def test_clean_resolution_shelves_relic_and_opens_next_file(migrated_conn) -> No
     assert completed == 1
 
 
-def test_failure_scars_one_participant(migrated_conn) -> None:
+def test_failure_scars_one_participant(migrated_conn, background_assigner) -> None:
     content, _ = _ready_file(migrated_conn, failures=4)
-    resolver = IdentityResolver(migrated_conn)
+    resolver = IdentityResolver(migrated_conn, background_assigner)
     players = [resolver.resolve_identity(name, None) for name in ("alice", "bob")]
     migrated_conn.executemany(
         "INSERT INTO active_file_participants (player_id) VALUES (?)",

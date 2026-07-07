@@ -10,15 +10,15 @@ from deeparchive.actions import DailyActionLedger
 from deeparchive.identity import IdentityResolver
 
 
-def test_allowance_defaults_to_five(migrated_conn) -> None:
-    player = IdentityResolver(migrated_conn).resolve_identity("alice", None)
+def test_allowance_defaults_to_five(migrated_conn, background_assigner) -> None:
+    player = IdentityResolver(migrated_conn, background_assigner).resolve_identity("alice", None)
     allowance = DailyActionLedger(migrated_conn).allowance(player.id)
     assert allowance.used == 0
     assert allowance.remaining == 5
 
 
-def test_sixth_action_is_rejected(migrated_conn) -> None:
-    player = IdentityResolver(migrated_conn).resolve_identity("alice", None)
+def test_sixth_action_is_rejected(migrated_conn, background_assigner) -> None:
+    player = IdentityResolver(migrated_conn, background_assigner).resolve_identity("alice", None)
     ledger = DailyActionLedger(migrated_conn)
     for remaining in (4, 3, 2, 1, 0):
         allowance = ledger.consume(player.id)
@@ -27,8 +27,10 @@ def test_sixth_action_is_rejected(migrated_conn) -> None:
     assert ledger.consume(player.id) is None
 
 
-def test_configured_timezone_controls_day_rollover(migrated_conn) -> None:
-    player = IdentityResolver(migrated_conn).resolve_identity("alice", None)
+def test_configured_timezone_controls_day_rollover(
+    migrated_conn, background_assigner
+) -> None:
+    player = IdentityResolver(migrated_conn, background_assigner).resolve_identity("alice", None)
     now = [datetime(2026, 7, 7, 3, 30, tzinfo=timezone.utc)]
     ledger = DailyActionLedger(
         migrated_conn,
