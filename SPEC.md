@@ -89,7 +89,8 @@ The day boundary is a single configurable timezone for the whole bot. Default is
 !investigate
 - Luck based.
 - Roughly 50/50 chance to discover something useful.
-- Rare complications are allowed.
+- The scout's action: a success can steady the File (bleed off accumulated
+  danger); a rare complication (5%) agitates it instead.
 
 !interview
 - Wit check.
@@ -99,6 +100,20 @@ The day boundary is a single configurable timezone for the whole bot. Default is
 
 !ritual
 - Occultism check.
+
+Stat checks are d6 + effective stat against a fixed target. A natural 1
+always fails and a natural 6 always succeeds — no stack of relics makes an
+investigator infallible, and no stat spread leaves one hopeless.
+
+Each theme favours one stat action (+1) and resists another (−1). The
+disposition also softens or sharpens the danger of failing that action. The
+File telegraphs its dispositions through an approach-hint line in !case; the
+channel is expected to read it and coordinate.
+
+Failure feeds the File's hidden danger: interview +1, force and ritual +2
+(±1 by disposition). Danger crossing hidden thresholds produces omens in the
+channel; at the highest threshold the File bites, scarring the acting
+investigator mid-File.
 
 Each action updates hidden file state.
 
@@ -132,7 +147,17 @@ Resolution tiers:
 - Success
 - Clean Success
 
-Immediately after resolution, a new File is created.
+The tier is decided by accumulated danger relative to the File's length.
+Failures are recorded in history but do not directly set the tier — what the
+Archive remembers is how agitated the File became.
+
+!case never shows numbers, but it does describe how far along the File feels
+(a progress band derived from successes against the hidden threshold) and
+carries the theme's approach hint.
+
+Immediately after resolution, a new File is created. Resolution lines
+occasionally cross-reference older closed Files by title, and good closes
+occasionally credit an investigator by nick — the Archive quotes itself.
 
 ## The Archive
 
@@ -143,6 +168,11 @@ After every completed File, investigators return to the Archive.
 The Archivist narrates this return with short atmospheric text describing the library, weather, shelves, lamps, dust, reading rooms, or catalogues.
 
 The Archive itself slowly changes over time.
+
+The weather is seeded per day: everyone who asks sees the same sky until the
+day turns. When the day does turn (and action allowances reset), the
+Archivist speaks exactly one unprompted line — the only time the bot speaks
+without being spoken to.
 
 ## Atmosphere & Voice
 
@@ -177,11 +207,15 @@ Examples:
 
 Scars make investigators stranger, not simply weaker.
 
+An investigator never receives the same scar twice. Scar mechanics live in
+content (TOML) as the single source of truth; the database keeps a snapshot
+only as a historical record.
+
 ## Shelved Relics
 
 Relics are communal. They belong to the Archive, not to investigators.
 
-Each File carries theme tags (e.g. darkness, flood, geometry). A relic's effects are a list. MVP relics carry one effect: a tag-matched +1 to all checks while a File with a matching tag is active. Later relics may define unique effects without changing the model.
+Each File carries theme tags (e.g. darkness, flood, geometry). A relic's effects are a list. The base effect is a tag-matched +1 to all stat checks while a File with a matching tag is active. An effect may declare its own tags and a negative amount, so some relics help one kind of File and hinder another — the shelf's composition matters. Later relics may define unique effects without changing the model.
 
 Successful investigations can shelve new relics. Relics affect future Files.
 
@@ -200,6 +234,10 @@ Meta-arcs remain hidden until their pattern becomes visible:
 - A Sealed File is revealed.
 - Investigators gather evidence through normal actions.
 - The final confrontation unlocks via !confront.
+
+The confrontation is communal: each investigator may face the Sealed File
+once per day (spending an action), and the arc resolves when either side
+reaches two results. A defeat lands as a full Disaster.
 
 Boss victories permanently enrich the Archive.
 

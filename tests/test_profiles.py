@@ -27,7 +27,7 @@ def test_profile_repository_reads_persisted_values(
         migrated_conn,
         DailyActionLedger(migrated_conn),
         load_content(),
-        ModifierService(migrated_conn),
+        ModifierService(migrated_conn, load_content()),
     ).get(player)
 
     assert (profile.wit, profile.strength, profile.occultism) == (1, 2, 3)
@@ -44,7 +44,7 @@ def test_profile_repository_rejects_missing_player(migrated_conn) -> None:
             migrated_conn,
             DailyActionLedger(migrated_conn),
             load_content(),
-            ModifierService(migrated_conn),
+            ModifierService(migrated_conn, load_content()),
         ).get(missing)
 
 
@@ -70,6 +70,6 @@ def test_profile_shows_effective_scar_modified_stats(
         migrated_conn,
         DailyActionLedger(migrated_conn),
         load_content(),
-        ModifierService(migrated_conn),
+        ModifierService(migrated_conn, load_content()),
     ).get(player)
     assert (profile.wit, profile.strength, profile.occultism) == (2, 1, 0)

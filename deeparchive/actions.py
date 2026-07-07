@@ -5,7 +5,7 @@ from __future__ import annotations
 import sqlite3
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 DEFAULT_ACTIONS_PER_DAY = 5
@@ -48,6 +48,21 @@ class DailyActionLedger:
         if now.tzinfo is None:
             raise ValueError("action clock must return a timezone-aware datetime")
         return now.astimezone(self._timezone).date().isoformat()
+
+    def seconds_until_day_turn(self) -> float:
+        """Seconds until the next day boundary in the configured timezone.
+
+        Never returns less than 1.0, so schedulers sleeping on this value
+        cannot spin when called exactly on the boundary.
+        """
+        now = self._clock()
+        if now.tzinfo is None:
+            raise ValueError("action clock must return a timezone-aware datetime")
+        local = now.astimezone(self._timezone)
+        next_turn = datetime.combine(
+            local.date() + timedelta(days=1), time.min, tzinfo=self._timezone
+        )
+        return max(1.0, (next_turn - local).total_seconds())
 
     def allowance(self, player_id: str) -> ActionAllowance:
         key = self.day_key()

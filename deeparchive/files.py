@@ -139,6 +139,7 @@ class FileService:
     def __init__(self, conn: sqlite3.Connection, content: ContentPack, rng: Rng) -> None:
         self._repository = FileRepository(conn)
         self._generator = FileGenerator(content, rng)
+        self._content = content
 
     def ensure_active(self) -> ActiveFile:
         active = self._repository.get_active()
@@ -148,8 +149,33 @@ class FileService:
 
     def describe_active(self) -> list[str]:
         active = self.ensure_active()
-        return [
+        lines = [
             f"{'Sealed File' if active.is_sealed else 'File'}: "
             f"{active.title} — {active.location}.",
             active.opening_text,
         ]
+        progress = self._progress_line(active)
+        if progress is not None:
+            lines.append(progress)
+        theme = self._content.themes.get(active.theme_key)
+        if theme is not None and theme.approach_hint:
+            lines.append(theme.approach_hint)
+        return lines
+
+    def _progress_line(self, active: ActiveFile) -> str | None:
+        """How far along the File feels. The threshold itself stays hidden."""
+        ratio = active.successes / active.success_threshold
+        if ratio < 0.25:
+            key = "thin"
+        elif ratio < 0.5:
+            key = "opening"
+        elif ratio < 0.75:
+            key = "deep"
+        else:
+            key = "closing"
+        lines = self._content.fragments.file_progress.get(key)
+        if not lines:
+            return None
+        # Keyed on the File's seed so repeated !case calls read the same line
+        # until the File moves into the next band.
+        return lines[active.seed % len(lines)]

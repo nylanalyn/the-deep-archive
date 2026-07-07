@@ -1,11 +1,11 @@
-"""Effective check values from backgrounds, scars, and communal relics."""
+"""Effective check values from backgrounds, scars, relics, and dispositions."""
 
 from __future__ import annotations
 
 import json
 import sqlite3
 
-from deeparchive.content.models import VALID_STATS
+from deeparchive.content.models import ContentPack, VALID_STATS
 
 BASE_INVESTIGATE_CHANCE = 0.50
 GAMBLER_INVESTIGATE_CHANCE = 0.55
@@ -14,8 +14,9 @@ GAMBLER_INVESTIGATE_CHANCE = 0.55
 class ModifierService:
     """Calculate the effective values used by checks and profiles."""
 
-    def __init__(self, conn: sqlite3.Connection) -> None:
+    def __init__(self, conn: sqlite3.Connection, content: ContentPack) -> None:
         self._conn = conn
+        self._content = content
 
     def effective_stat(self, player_id: str, stat: str) -> int:
         if stat not in VALID_STATS:
@@ -37,12 +38,46 @@ class ModifierService:
             return GAMBLER_INVESTIGATE_CHANCE
         return BASE_INVESTIGATE_CHANCE
 
+    def action_disposition(self, action: str) -> int:
+        """The active File's theme disposition toward ``action`` (usually ±1).
+
+        Themes favour some approaches and resist others; the shift applies to
+        every investigator while a File of that theme is active. Unknown
+        themes and actions without a disposition contribute nothing.
+        """
+        row = self._conn.execute(
+            "SELECT theme_key FROM active_file WHERE id = 1"
+        ).fetchone()
+        if row is None:
+            return 0
+        theme = self._content.themes.get(str(row["theme_key"]))
+        if theme is None:
+            return 0
+        return theme.dispositions.get(action, 0)
+
     def _scar_delta(self, player_id: str, stat: str) -> int:
+        """Sum scar modifiers for ``stat`` with the content pack as truth.
+
+        The TOML definition is the single source of scar mechanics, so
+        rebalancing a scar applies to everyone who carries it. The DB's
+        ``modifiers_json`` snapshot is only consulted for scars whose key has
+        since left the content pack — those keep the values they were
+        assigned with rather than silently losing their effect.
+        """
         total = 0
         rows = self._conn.execute(
-            "SELECT modifiers_json FROM scars WHERE player_id = ?", (player_id,)
+            "SELECT scar_key, modifiers_json FROM scars WHERE player_id = ?",
+            (player_id,),
         )
         for row in rows:
+            definition = self._content.scars.get(str(row["scar_key"]))
+            if definition is not None:
+                total += sum(
+                    modifier.delta
+                    for modifier in definition.modifiers
+                    if modifier.stat == stat
+                )
+                continue
             modifiers = json.loads(row["modifiers_json"])
             if not isinstance(modifiers, list):
                 raise ValueError("scars.modifiers_json must be a list")

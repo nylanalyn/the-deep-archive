@@ -14,16 +14,27 @@ from deeparchive.rng import Rng
 REWARD_TIERS = frozenset({"partial_success", "success", "clean_success"})
 SCAR_TIERS = frozenset({"disaster", "failure", "mixed_failure"})
 
+# Odds of the Archivist cross-referencing older records at resolution.
+HISTORY_ECHO_CHANCE = 0.3
+PARTICIPANT_ECHO_CHANCE = 0.25
+
 
 def resolution_tier(failures: int, danger: int, threshold: int = 5) -> str:
-    """Map consequences to a tier relative to the File's required progress."""
+    """Map consequences to a tier relative to the File's required progress.
+
+    Danger alone decides the tier. Failures are recorded for history, but
+    what the Archive remembers is how agitated the File became: careless
+    force and botched rites weigh double, and a steadying !investigate can
+    bleed danger back off. ``failures`` stays in the signature because every
+    caller has it and history keeps both numbers.
+    """
     if threshold < 1:
         raise ValueError("resolution threshold must be positive")
-    penalty = max(failures, danger)
+    del failures  # recorded in history; the tier reads danger
     # Normalize to the original five-step consequence scale. Longer Files can
-    # absorb proportionally more failed actions without becoming automatic
+    # absorb proportionally more agitation without becoming automatic
     # disasters merely because they took longer to investigate.
-    scaled_penalty = (penalty * 5 + threshold - 1) // threshold
+    scaled_penalty = (danger * 5 + threshold - 1) // threshold
     return (
         "clean_success",
         "success",
@@ -106,6 +117,9 @@ class ResolutionService:
 
         observation = None if is_sealed else self._meta.observe_theme(str(row["theme_key"]))
         lines = [self._rng.choice(self._content.fragments.resolution_tiers[tier])]
+        history_echo = self._history_echo(history_id)
+        if history_echo is not None:
+            lines.append(history_echo)
         if observation is not None and observation.hint is not None:
             lines.append(observation.hint)
         relic = self._award_relic(tier, json.loads(row["theme_tags_json"]), history_id)
@@ -115,6 +129,9 @@ class ResolutionService:
         if scar is not None:
             nick, definition = scar
             lines.append(f"The personnel file for {nick} is amended: {definition.name}.")
+        participant_echo = self._participant_echo(tier, participants)
+        if participant_echo is not None:
+            lines.append(participant_echo)
 
         if is_sealed and row["arc_key"]:
             arc_key = str(row["arc_key"])
@@ -132,6 +149,7 @@ class ResolutionService:
         return_key = self._return_key(tier)
         lines.append(self._rng.choice(self._content.fragments.archive_returns[return_key]))
         self._conn.execute("DELETE FROM active_file_participants")
+        self._conn.execute("DELETE FROM active_file_confronts")
         self._conn.execute("DELETE FROM active_file WHERE id = 1")
         revealed_arc = observation.revealed if observation is not None else None
         next_file = (
@@ -153,6 +171,40 @@ class ResolutionService:
             next_file=next_file,
             lines=tuple(lines),
         )
+
+    def _history_echo(self, exclude_history_id: int) -> str | None:
+        """Occasionally cross-reference an older closed File by title."""
+        templates = self._content.fragments.history_echoes.get("default")
+        if not templates or not self._rng.chance(HISTORY_ECHO_CHANCE):
+            return None
+        titles = [
+            str(row["title"])
+            for row in self._conn.execute(
+                "SELECT title FROM file_history WHERE id != ? "
+                "ORDER BY id DESC LIMIT 50",
+                (exclude_history_id,),
+            )
+        ]
+        if not titles:
+            return None
+        template = self._rng.choice(templates)
+        return template.format(title=self._rng.choice(titles))
+
+    def _participant_echo(self, tier: str, participants: list[str]) -> str | None:
+        """On good closes, occasionally credit an investigator by nick."""
+        if tier not in REWARD_TIERS or not participants:
+            return None
+        templates = self._content.fragments.participant_echoes.get("default")
+        if not templates or not self._rng.chance(PARTICIPANT_ECHO_CHANCE):
+            return None
+        player_id = self._rng.choice(participants)
+        row = self._conn.execute(
+            "SELECT display_nick FROM players WHERE id = ?", (player_id,)
+        ).fetchone()
+        if row is None:
+            return None
+        template = self._rng.choice(templates)
+        return template.format(nick=str(row["display_nick"]))
 
     def _return_key(self, tier: str) -> str:
         if tier in {"clean_success", "success"}:
@@ -205,7 +257,19 @@ class ResolutionService:
         if tier not in SCAR_TIERS or not participants:
             return None
         player_id = self._rng.choice(participants)
-        scar = self._rng.choice(tuple(self._content.scars.values()))
+        owned = {
+            str(row["scar_key"])
+            for row in self._conn.execute(
+                "SELECT scar_key FROM scars WHERE player_id = ?", (player_id,)
+            )
+        }
+        candidates = tuple(
+            scar for scar in self._content.scars.values() if scar.key not in owned
+        )
+        if not candidates:
+            # This investigator already carries every scar the Archive knows.
+            return None
+        scar = self._rng.choice(candidates)
         modifiers = [
             {"stat": modifier.stat, "delta": modifier.delta}
             for modifier in scar.modifiers

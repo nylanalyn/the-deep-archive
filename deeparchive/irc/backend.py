@@ -11,6 +11,7 @@ so the full routing path remains proven end-to-end.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from collections.abc import Callable
 from datetime import datetime
@@ -59,6 +60,7 @@ class BotBackend:
         self._conn = conn
         self._channel = channel
         content_pack = content or load_content()
+        self._content = content_pack
         self._resolver = IdentityResolver(
             conn,
             BackgroundAssigner(content_pack, background_rng or make_rng()),
@@ -70,14 +72,17 @@ class BotBackend:
             limit=actions_per_day,
             clock=clock,
         )
-        self._modifiers = ModifierService(conn)
+        self._modifiers = ModifierService(conn, content_pack)
         self._profiles = ProfileRepository(
             conn, self._actions, content_pack, self._modifiers
         )
         self._files = FileService(conn, content_pack, action_rng)
         self._resolution = ResolutionService(conn, content_pack, action_rng)
         self._flavour = ArchiveFlavourService(
-            conn, content_pack, flavour_rng or make_rng()
+            conn,
+            content_pack,
+            flavour_rng or make_rng(),
+            day_key=self._actions.day_key,
         )
         self._gameplay = GameplayService(
             conn,
@@ -86,9 +91,15 @@ class BotBackend:
             self._resolution,
             self._modifiers,
             ActionNarrator(content_pack, action_flavour_rng or make_rng()),
+            content_pack,
         )
         self._confrontation = ConfrontationService(
-            conn, self._actions, self._modifiers, self._resolution, action_rng
+            conn,
+            self._actions,
+            self._modifiers,
+            self._resolution,
+            action_rng,
+            content_pack,
         )
         # A File always exists, including immediately after a clean startup.
         self._files.ensure_active()
@@ -168,11 +179,12 @@ class BotBackend:
         """Summarize the game loop and the complete player command surface."""
         return [
             f"The Archive opens one File at a time. You have {self._actions.limit} "
-            "actions each day; gather evidence, endure the consequences, and close "
-            "the File.",
+            "actions each day. Each File favours some approaches and resents "
+            "others — read !case, coordinate, and close it before it turns.",
             "Commands: !case current File · !profile [nick] personnel file · "
-            "!room Archive · !investigate luck · !interview Wit · !force Strength · "
-            "!ritual Occultism · !confront Sealed Files",
+            "!room Archive · !investigate luck, steadies the File · "
+            "!interview Wit · !force Strength · !ritual Occultism · "
+            "!confront Sealed Files",
         ]
 
     def handle_case(self, player: Player, parsed: ParsedCommand) -> list[str]:
@@ -193,14 +205,22 @@ class BotBackend:
         return self._confrontation.confront(player)
 
     @staticmethod
-    def reply_delay(message: str, reply_index: int) -> float:
-        """Pause between an action's attempt and explicit outcome lines."""
+    def reply_delay(message: str, reply_index: int, line: str) -> float:
+        """Pause between an action's attempt and explicit outcome lines.
+
+        The pause lands only before a genuine SUCCESS/FAILURE beat — a
+        resolution or blocked reply triggered by the same command flows
+        without the dramatic gap.
+        """
+        if reply_index != 1 or not line.startswith(("SUCCESS —", "FAILURE —")):
+            return 0.0
         parsed = parse_command(message)
-        if (
-            reply_index == 1
-            and parsed is not None
-            and parsed.name in {"investigate", "interview", "force", "ritual"}
-        ):
+        if parsed is not None and parsed.name in {
+            "investigate",
+            "interview",
+            "force",
+            "ritual",
+        }:
             return 1.5
         return 0.0
 
@@ -225,6 +245,29 @@ class BotBackend:
         self._resolver.update_account(nick, account)
 
     # ------------------------------------------------------------------
+    # Daily heartbeat
+    # ------------------------------------------------------------------
+
+    def seconds_until_heartbeat(self) -> float:
+        """Seconds until the day turns in the configured timezone."""
+        return self._actions.seconds_until_day_turn()
+
+    def heartbeat_line(self) -> str | None:
+        """The single unprompted line spoken when the day turns.
+
+        Seeded by the day key so restarts within the same day repeat the
+        same line rather than rolling a new one. Returns ``None`` when quiet
+        or when the content pack ships no heartbeats.
+        """
+        if self.quiet:
+            return None
+        lines = self._content.fragments.day_heartbeats.get("default")
+        if not lines:
+            return None
+        digest = hashlib.sha256(self._actions.day_key().encode("utf-8")).digest()
+        return Rng(int.from_bytes(digest[:8], "big")).choice(lines)
+
+    # ------------------------------------------------------------------
     # Admin surface
     # ------------------------------------------------------------------
 
@@ -247,7 +290,8 @@ class BotBackend:
 
     @staticmethod
     def _reserved_reply(name: str) -> str:
-        return f"The Archive holds no answer for that. Not yet."
+        del name  # all sealed requests receive the same quiet refusal
+        return "The Archive holds no answer for that. Not yet."
 
     # ------------------------------------------------------------------
     # Dispatch table

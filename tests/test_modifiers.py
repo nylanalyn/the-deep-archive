@@ -27,7 +27,7 @@ def _player_and_modifiers(migrated_conn, background_assigner):
         (player.id,),
     )
     migrated_conn.commit()
-    return player, ModifierService(migrated_conn)
+    return player, ModifierService(migrated_conn, load_content())
 
 
 def test_scar_deltas_stack_by_stat(migrated_conn, background_assigner) -> None:

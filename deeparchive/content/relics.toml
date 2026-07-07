@@ -1,9 +1,11 @@
 # The Deep Archive — Relics.
 #
 # Relics are communal. They belong to the Archive, not to investigators. Each
-# relic's effects are a list; MVP carries one effect: stat_bonus, a tag-matched
-# +1 to all checks while a File with a matching tag is active. Later relics may
-# define unique effects without changing the model.
+# relic's effects are a list; the base effect is stat_bonus, a tag-matched
+# bonus to all stat checks while a File with a matching tag is active. An
+# effect may declare its own tags to differ from the relic's — including
+# negative amounts, so a relic can help one kind of File and hinder another.
+# The shelf's composition matters.
 #
 # A relic's tags are the shorthand its effects inherit (unless an effect
 # declares its own tags).
@@ -30,4 +32,40 @@ effects = [{ type = "stat_bonus", amount = 1 }]
 name = "Black Cabinet"
 description = "Holds what cannot be shelved elsewhere."
 tags = ["void", "geometry"]
+effects = [{ type = "stat_bonus", amount = 1 }]
+
+[relics.lead_backed_mirror]
+name = "Lead-Backed Mirror"
+description = "Shows the room as it was an hour ago, which is sometimes safer."
+tags = ["mirrors", "reflection"]
+effects = [
+    { type = "stat_bonus", amount = 1 },
+    # It hoards the light it borrows; dark Files find the shelves dimmer.
+    { type = "stat_bonus", amount = -1, tags = ["darkness"] },
+]
+
+[relics.stopped_watch]
+name = "Stopped Watch"
+description = "Right once a day, and insists on choosing when."
+tags = ["clocks", "time"]
+effects = [
+    { type = "stat_bonus", amount = 1 },
+    # Water got into it once. It has never forgiven the water.
+    { type = "stat_bonus", amount = -1, tags = ["flood"] },
+]
+
+[relics.census_of_dust]
+name = "Census of Dust"
+description = "Counts what has settled, and refuses to be disturbed."
+tags = ["dust", "stillness"]
+effects = [
+    { type = "stat_bonus", amount = 1 },
+    # Rooms that move their walls upset the count.
+    { type = "stat_bonus", amount = -1, tags = ["geometry"] },
+]
+
+[relics.iron_bookmark]
+name = "Iron Bookmark"
+description = "Holds the place in books that try to turn their own pages."
+tags = ["darkness", "clocks"]
 effects = [{ type = "stat_bonus", amount = 1 }]

@@ -42,6 +42,10 @@ RESOLUTION_TIERS: tuple[str, ...] = (
 # model. An unknown type at load time is a content error, not silently ignored.
 VALID_EFFECT_TYPES: frozenset[str] = frozenset({"stat_bonus"})
 
+# Actions a theme disposition may favour or resist. Only the stat-checked
+# actions take dispositions; !investigate is the neutral scout.
+DISPOSITION_ACTIONS: frozenset[str] = frozenset({"interview", "force", "ritual"})
+
 
 class ContentError(ValueError):
     """Raised when content data is missing, malformed, or references unknown names."""
@@ -350,6 +354,10 @@ class ThemeDefinition:
     tags: tuple[str, ...]
     locations: tuple[str, ...]
     title_parts: dict[str, tuple[str, ...]]
+    # Extras E9: dispositions shift stat checks for specific actions (±1)
+    # while a File of this theme is active. approach_hint telegraphs them.
+    dispositions: dict[str, int] = field(default_factory=dict)
+    approach_hint: str | None = None
 
     @classmethod
     def from_dict(cls, key: str, raw: dict[str, Any]) -> "ThemeDefinition":
@@ -386,12 +394,42 @@ class ThemeDefinition:
                 non_empty=True,
             )
 
+        raw_dispositions = raw.get("dispositions", {})
+        if not isinstance(raw_dispositions, dict):
+            raise ContentError(f"theme {key!r}: dispositions must be a table")
+        dispositions: dict[str, int] = {}
+        for action, delta in raw_dispositions.items():
+            if action not in DISPOSITION_ACTIONS:
+                raise ContentError(
+                    f"theme {key!r}: dispositions.{action} is not a stat action "
+                    f"(expected one of {sorted(DISPOSITION_ACTIONS)})"
+                )
+            if not isinstance(delta, int) or isinstance(delta, bool) or delta == 0:
+                raise ContentError(
+                    f"theme {key!r}: dispositions.{action} must be a non-zero integer"
+                )
+            if abs(delta) > 2:
+                raise ContentError(
+                    f"theme {key!r}: dispositions.{action} must stay within ±2"
+                )
+            dispositions[str(action)] = delta
+
+        approach_hint = raw.get("approach_hint")
+        if approach_hint is not None and (
+            not isinstance(approach_hint, str) or not approach_hint.strip()
+        ):
+            raise ContentError(
+                f"theme {key!r}: approach_hint must be a non-empty string"
+            )
+
         return cls(
             key=key,
             name=name,
             tags=tags,
             locations=locations,
             title_parts=title_parts,
+            dispositions=dispositions,
+            approach_hint=approach_hint,
         )
 
 
@@ -421,6 +459,15 @@ class FragmentLibrary:
     action_methods: dict[str, tuple[str, ...]] = field(default_factory=dict)
     action_successes: dict[str, tuple[str, ...]] = field(default_factory=dict)
     action_failures: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    # Extras sections. Optional: absent sections disable their feature
+    # gracefully rather than failing the pack, so minimal test packs and
+    # older custom content directories keep loading.
+    danger_omens: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    file_progress: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    confrontations: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    history_echoes: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    participant_echoes: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    day_heartbeats: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "FragmentLibrary":
@@ -453,6 +500,12 @@ class FragmentLibrary:
             action_methods=parse_section("action_methods"),
             action_successes=parse_section("action_successes"),
             action_failures=parse_section("action_failures"),
+            danger_omens=parse_section("danger_omens"),
+            file_progress=parse_section("file_progress"),
+            confrontations=parse_section("confrontations"),
+            history_echoes=parse_section("history_echoes"),
+            participant_echoes=parse_section("participant_echoes"),
+            day_heartbeats=parse_section("day_heartbeats"),
         )
 
 
@@ -597,6 +650,22 @@ class ContentPack:
             raise ContentError(
                 f"ContentPack fragments.resolution_tiers missing: {missing_tiers}"
             )
+        # Echo templates are str.format'd at runtime; a missing placeholder
+        # would silently produce a line that names nothing. Check at load.
+        for section_name, lines, placeholder in (
+            ("history_echoes", fragments.history_echoes.get("default", ()), "{title}"),
+            (
+                "participant_echoes",
+                fragments.participant_echoes.get("default", ()),
+                "{nick}",
+            ),
+        ):
+            for line in lines:
+                if placeholder not in line:
+                    raise ContentError(
+                        f"fragments.{section_name} line must contain "
+                        f"{placeholder!r}: {line!r}"
+                    )
 
         return cls(
             themes=themes,

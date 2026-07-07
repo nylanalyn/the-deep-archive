@@ -5,9 +5,16 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+from collections.abc import Callable
 from typing import Protocol
 
 from deeparchive.content.models import ContentPack
+from deeparchive.rng import Rng
+
+# `!room` shows the newest few relics rather than the whole reliquary, so the
+# reply stays IRC-sized however long the Archive has been accumulating.
+MAX_RELIC_LINES = 3
+
 
 class ChoiceSource(Protocol):
     def choice(self, seq): ...
@@ -16,10 +23,19 @@ class ChoiceSource(Protocol):
 class ArchiveFlavourService:
     """Compose `!room` output from fragments and accumulated history."""
 
-    def __init__(self, conn: sqlite3.Connection, content: ContentPack, rng: ChoiceSource):
+    def __init__(
+        self,
+        conn: sqlite3.Connection,
+        content: ContentPack,
+        rng: ChoiceSource,
+        day_key: Callable[[], str] | None = None,
+    ):
         self._conn = conn
         self._fragments = content.fragments
         self._rng = rng
+        # When a day-key provider is given, weather is deterministic per day:
+        # everyone who asks sees the same sky until the day turns.
+        self._day_key = day_key
         self._relic_names = {
             key: relic.name for key, relic in content.relics.items()
         }
@@ -41,17 +57,25 @@ class ArchiveFlavourService:
             mood_key = "default"
         lines = [
             self._rng.choice(self._fragments.archive_descriptions[description_key]),
-            self._rng.choice(self._fragments.room_weather["default"]),
+            self._weather_rng().choice(self._fragments.room_weather["default"]),
             self._rng.choice(self._fragments.room_moods[mood_key]),
             self._history_line(completed, relics, scars),
         ]
-        lines.extend(self._relic_lines())
+        lines.extend(self._relic_lines(total=relics))
         return lines
 
-    def _relic_lines(self) -> list[str]:
+    def _weather_rng(self) -> ChoiceSource:
+        if self._day_key is None:
+            return self._rng
+        digest = hashlib.sha256(self._day_key().encode("utf-8")).digest()
+        return Rng(int.from_bytes(digest[:8], "big"))
+
+    def _relic_lines(self, total: int) -> list[str]:
         lines: list[str] = []
         rows = self._conn.execute(
-            "SELECT relic_key, description, effects_json FROM relics ORDER BY id"
+            "SELECT relic_key, description, effects_json FROM relics "
+            "ORDER BY id DESC LIMIT ?",
+            (MAX_RELIC_LINES,),
         )
         for row in rows:
             key = str(row["relic_key"])
@@ -72,6 +96,10 @@ class ArchiveFlavourService:
             lines.append(
                 f"Relic: {name} — {row['description']} Effect: {effect_text}."
             )
+        hidden = total - len(lines)
+        if hidden > 0:
+            noun = "relic rests" if hidden == 1 else "relics rest"
+            lines.append(f"{hidden} older {noun} behind glass, catalogued but unshown.")
         return lines
 
     def _count(self, table: str) -> int:

@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal, Protocol
 
 from deeparchive.actions import DailyActionLedger
 from deeparchive.action_flavour import ActionNarrator
+from deeparchive.content.models import ContentPack
 from deeparchive.identity import Player
 from deeparchive.modifiers import ModifierService
 from deeparchive.resolution import ResolutionOutcome, ResolutionService
@@ -15,11 +17,39 @@ from deeparchive.resolution import ResolutionOutcome, ResolutionService
 ActionName = Literal["investigate", "interview", "force", "ritual"]
 STAT_CHECK_TARGET = 4
 
+# How much danger a failed action feeds the File. Interviewing a witness
+# badly is embarrassing; forcing a sealed door badly is provocation.
+DANGER_ON_FAILURE: dict[ActionName, int] = {
+    "investigate": 1,
+    "interview": 1,
+    "force": 2,
+    "ritual": 2,
+}
+
+# A successful !investigate may steady the File: careful reading bleeds off
+# accumulated danger. This is investigate's job — the others make progress
+# faster but agitate the File when they slip.
+STEADY_CHANCE = 0.5
+
+# Rare complication on !investigate (per SPEC): the evidence looks back.
+COMPLICATION_CHANCE = 0.05
+
+# Danger levels at which the Archivist lets the room feel it. Crossing the
+# last one makes the File bite: the acting investigator is scarred mid-File.
+OMEN_THRESHOLDS: tuple[tuple[int, str], ...] = (
+    (4, "rising"),
+    (8, "high"),
+    (12, "critical"),
+)
+BITE_DANGER = 12
+
 
 class RandomSource(Protocol):
     def randint(self, low: int, high: int) -> int: ...
 
     def chance(self, probability: float) -> bool: ...
+
+    def choice(self, seq): ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,6 +62,7 @@ class ActionOutcome:
     confront_unlocked: bool = False
     attempt_text: str | None = None
     result_text: str | None = None
+    extra_lines: tuple[str, ...] = field(default=())
 
 
 _ACTION_STATS: dict[ActionName, str | None] = {
@@ -52,6 +83,7 @@ class GameplayService:
         resolution: ResolutionService,
         modifiers: ModifierService,
         narrator: ActionNarrator,
+        content: ContentPack,
     ) -> None:
         self._conn = conn
         self._ledger = ledger
@@ -59,6 +91,7 @@ class GameplayService:
         self._resolution = resolution
         self._modifiers = modifiers
         self._narrator = narrator
+        self._content = content
 
     def perform(self, player: Player, action: ActionName) -> ActionOutcome | None:
         if action not in _ACTION_STATS:
@@ -88,21 +121,37 @@ class GameplayService:
                 self._conn.execute("ROLLBACK")
                 return None
 
-            success = self._roll(player, action)
+            disposition = (
+                0
+                if _ACTION_STATS[action] is None
+                else self._modifiers.action_disposition(action)
+            )
+            success = self._roll(player, action, disposition)
             attempt_text = self._narrator.attempt(action)
             result_text = self._narrator.result(action, success)
+            danger_before = self._current_danger()
             if success:
                 update = self._conn.execute(
                     "UPDATE active_file SET successes = successes + 1, "
                     "clue_count = clue_count + 1 WHERE id = 1"
                 )
             else:
+                # A favoured approach agitates the File less when it slips; a
+                # resisted one provokes it. Failing is never free.
+                danger_gain = max(1, DANGER_ON_FAILURE[action] - disposition)
                 update = self._conn.execute(
                     "UPDATE active_file SET failures = failures + 1, "
-                    "danger = danger + 1 WHERE id = 1"
+                    "danger = danger + ? WHERE id = 1",
+                    (danger_gain,),
                 )
             if update.rowcount != 1:
                 raise RuntimeError("no active File to receive action outcome")
+
+            extra_lines: list[str] = []
+            if action == "investigate":
+                extra_lines.extend(self._investigate_extras(success, danger_before))
+            extra_lines.extend(self._danger_transition(player, danger_before))
+
             self._conn.execute(
                 "INSERT OR IGNORE INTO active_file_participants (player_id) VALUES (?)",
                 (player.id,),
@@ -123,14 +172,96 @@ class GameplayService:
             confront_unlocked=confront_unlocked,
             attempt_text=attempt_text,
             result_text=result_text,
+            extra_lines=tuple(extra_lines),
         )
 
-    def _roll(self, player: Player, action: ActionName) -> bool:
+    def _roll(self, player: Player, action: ActionName, disposition: int) -> bool:
         stat = _ACTION_STATS[action]
         if stat is None:
             return self._rng.chance(self._modifiers.investigate_chance(player.id))
-        effective_stat = self._modifiers.effective_stat(player.id, stat)
-        return self._rng.randint(1, 6) + effective_stat >= STAT_CHECK_TARGET
+        effective = self._modifiers.effective_stat(player.id, stat) + disposition
+        roll = self._rng.randint(1, 6)
+        # A natural 1 always fails and a natural 6 always succeeds: no stack
+        # of relics makes an investigator infallible, and no stat spread
+        # leaves one hopeless.
+        if roll == 1:
+            return False
+        if roll == 6:
+            return True
+        return roll + effective >= STAT_CHECK_TARGET
+
+    def _current_danger(self) -> int:
+        row = self._conn.execute(
+            "SELECT danger FROM active_file WHERE id = 1"
+        ).fetchone()
+        if row is None:
+            raise RuntimeError("no active File to receive action outcome")
+        return int(row["danger"])
+
+    def _investigate_extras(self, success: bool, danger_before: int) -> list[str]:
+        """Apply !investigate's side effects: steadying and complications."""
+        lines: list[str] = []
+        if success and danger_before > 0 and self._rng.chance(STEADY_CHANCE):
+            self._conn.execute(
+                "UPDATE active_file SET danger = MAX(danger - 1, 0) WHERE id = 1"
+            )
+            steadied = self._content.fragments.danger_omens.get("steadied")
+            if steadied:
+                lines.append(self._rng.choice(steadied))
+        if self._rng.chance(COMPLICATION_CHANCE):
+            self._conn.execute(
+                "UPDATE active_file SET danger = danger + 1 WHERE id = 1"
+            )
+            complication = self._content.fragments.danger_omens.get("complication")
+            if complication:
+                lines.append(self._rng.choice(complication))
+        return lines
+
+    def _danger_transition(self, player: Player, danger_before: int) -> list[str]:
+        """Narrate crossed danger thresholds; at the last one the File bites."""
+        danger_after = self._current_danger()
+        lines: list[str] = []
+        for bound, key in OMEN_THRESHOLDS:
+            if danger_before < bound <= danger_after:
+                omens = self._content.fragments.danger_omens.get(key)
+                if omens:
+                    lines.append(self._rng.choice(omens))
+        if danger_before < BITE_DANGER <= danger_after:
+            bite = self._bite(player)
+            if bite is not None:
+                lines.append(bite)
+        return lines
+
+    def _bite(self, player: Player) -> str | None:
+        """Scar the acting investigator mid-File. Returns the amendment line."""
+        owned = {
+            str(row["scar_key"])
+            for row in self._conn.execute(
+                "SELECT scar_key FROM scars WHERE player_id = ?", (player.id,)
+            )
+        }
+        candidates = [
+            scar
+            for scar in self._content.scars.values()
+            if scar.key not in owned
+        ]
+        if not candidates:
+            return None
+        scar = self._rng.choice(candidates)
+        modifiers = [
+            {"stat": modifier.stat, "delta": modifier.delta}
+            for modifier in scar.modifiers
+        ]
+        self._conn.execute(
+            "INSERT INTO scars "
+            "(player_id, scar_key, modifiers_json, description, source_file_id) "
+            "VALUES (?, ?, ?, ?, NULL)",
+            (player.id, scar.key, json.dumps(modifiers), scar.description),
+        )
+        return (
+            f"The File bites. The personnel file for {player.display_nick} "
+            f"is amended: {scar.name}."
+        )
 
     @staticmethod
     def render(outcome: ActionOutcome | None) -> list[str]:
@@ -151,6 +282,7 @@ class GameplayService:
             f"{label} — {outcome.result_text} "
             f"{outcome.remaining_actions} {noun} remain today.",
         ]
+        lines.extend(outcome.extra_lines)
         if outcome.resolution is not None:
             lines.extend(outcome.resolution.lines)
         elif outcome.confront_unlocked:
