@@ -73,3 +73,27 @@ def test_profile_shows_effective_scar_modified_stats(
         ModifierService(migrated_conn, load_content()),
     ).get(player)
     assert (profile.wit, profile.strength, profile.occultism) == (2, 1, 0)
+
+
+def test_profile_leads_scar_line_with_its_name(
+    migrated_conn, background_assigner
+) -> None:
+    player = IdentityResolver(migrated_conn, background_assigner).resolve_identity(
+        "alice", None
+    )
+    migrated_conn.execute(
+        "INSERT INTO scars (player_id, scar_key, modifiers_json, description) "
+        "VALUES (?, 'paper_bones', '[{\"stat\":\"strength\",\"delta\":-1}]', "
+        "'Your bones remember being paper.')",
+        (player.id,),
+    )
+    migrated_conn.commit()
+    profile = ProfileRepository(
+        migrated_conn,
+        DailyActionLedger(migrated_conn),
+        load_content(),
+        ModifierService(migrated_conn, load_content()),
+    ).get(player)
+    scar_line = render_profile(profile)[4]
+    name = load_content().scars["paper_bones"].name
+    assert scar_line.startswith(f"Scars: {name} — ")

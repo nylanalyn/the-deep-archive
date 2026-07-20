@@ -304,9 +304,23 @@ class IdentityResolver:
         self._conn.commit()
         return player
 
+    def _background_counts(self) -> dict[str, int]:
+        """How many catalogued investigators currently hold each background.
+
+        Feeds the no-duplicate assignment rotation. The bot never resolves its
+        own identity (see ``bot.on_join``), so there is no bot row to exclude.
+        """
+        return {
+            str(row["background_key"]): int(row["n"])
+            for row in self._conn.execute(
+                "SELECT background_key, COUNT(*) AS n FROM players "
+                "WHERE background_key != 'unassigned' GROUP BY background_key"
+            )
+        }
+
     def _create_player(self, nick: str, account: str | None) -> Player:
         player_id = str(uuid.uuid4())
-        background = self._backgrounds.choose()
+        background = self._backgrounds.choose(self._background_counts())
         try:
             self._conn.execute(
                 "INSERT INTO players "
@@ -340,7 +354,7 @@ class IdentityResolver:
         ).fetchone()
         if row is None or row["background_key"] != "unassigned":
             return
-        background = self._backgrounds.choose()
+        background = self._backgrounds.choose(self._background_counts())
         self._conn.execute(
             "UPDATE players SET background_key = ?, wit = ?, strength = ?, "
             "occultism = ? WHERE id = ? AND background_key = 'unassigned'",

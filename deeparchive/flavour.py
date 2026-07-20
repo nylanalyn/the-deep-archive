@@ -15,6 +15,10 @@ from deeparchive.rng import Rng
 # reply stays IRC-sized however long the Archive has been accumulating.
 MAX_RELIC_LINES = 3
 
+# The Archive reads differently after each Sealed File the room breaks. Eras are
+# capped so late-game content stays bounded; era_N maps to N boss victories.
+MAX_ERA = 3
+
 
 class ChoiceSource(Protocol):
     def choice(self, seq): ...
@@ -47,11 +51,7 @@ class ArchiveFlavourService:
         relics = self._count("relics")
         completed = self._count("file_history")
         scars = self._count("scars")
-        description_key = (
-            "reliquary"
-            if relics and "reliquary" in self._fragments.archive_descriptions
-            else "default"
-        )
+        description_key = self._description_key(relics)
         mood_key = self._mood_key()
         if mood_key not in self._fragments.room_moods:
             mood_key = "default"
@@ -63,6 +63,37 @@ class ArchiveFlavourService:
         ]
         lines.extend(self._relic_lines(total=relics))
         return lines
+
+    def _description_key(self, relics: int) -> str:
+        """Pick the Archive-description bucket, era first.
+
+        After the room breaks a Sealed File the world visibly changes: an
+        era_N bucket (N boss victories, capped) takes precedence, then the
+        reliquary once relics exist, then the default.
+        """
+        era = min(self._boss_victories(), MAX_ERA)
+        era_key = f"era_{era}"
+        if era >= 1 and era_key in self._fragments.archive_descriptions:
+            return era_key
+        if relics and "reliquary" in self._fragments.archive_descriptions:
+            return "reliquary"
+        return "default"
+
+    def _boss_victories(self) -> int:
+        """Total Sealed Files the room has broken, from the meta-arc blob."""
+        row = self._conn.execute(
+            "SELECT state_json FROM meta_arc_state WHERE id = 1"
+        ).fetchone()
+        if row is None:
+            return 0
+        try:
+            state = json.loads(row["state_json"])
+        except (TypeError, ValueError):
+            return 0
+        victories = state.get("victories", {}) if isinstance(state, dict) else {}
+        if not isinstance(victories, dict):
+            return 0
+        return sum(int(count) for count in victories.values())
 
     def _weather_rng(self) -> ChoiceSource:
         if self._day_key is None:

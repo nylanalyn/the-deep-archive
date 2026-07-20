@@ -134,7 +134,9 @@ class ConfrontationService:
         noun = "action" if allowance.remaining == 1 else "actions"
         first = f"{beat} {allowance.remaining} {noun} remain today."
         if resolved is None:
-            return [first, self._beat("pending")]
+            # Narrate the swinging tally so the confrontation reads as a fight
+            # in progress, not a silent counter ticking to two.
+            return [first, self._tally_line(wins, losses), self._beat("pending")]
         opening = (
             "The final leaf yields. The pattern breaks."
             if victory
@@ -145,3 +147,11 @@ class ConfrontationService:
     def _beat(self, key: str) -> str:
         lines = self._content.fragments.confrontations.get(key) or _DEFAULT_BEATS[key]
         return self._rng.choice(lines)
+
+    @staticmethod
+    def _tally_line(wins: int, losses: int) -> str:
+        needed = CONFRONT_WINS_NEEDED
+        return (
+            f"The final leaf stands at {wins} of {needed} readings held, "
+            f"{losses} of {needed} turned against the room."
+        )

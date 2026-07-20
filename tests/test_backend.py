@@ -54,7 +54,7 @@ class TestHandleMessage:
         replies = backend.handle_message("alice", None, "!profile")
         assert replies[0].startswith("Personnel file: alice — ")
         assert replies[1:] == [
-            "Effective: Wit 2 · Strength 0 · Occultism 1.",
+            "Effective: Wit 3 · Strength -1 · Occultism 1.",
             "Actions remaining today: 5.",
             "Background: Archivist · Completed Files: 0.",
             "Scars: none recorded.",
@@ -106,7 +106,7 @@ class TestHandleMessage:
             "Effective: Wit 3 · Strength -1 · Occultism 1.",
             "Actions remaining today: 5.",
             "Background: Archivist · Completed Files: 0.",
-            "Scars: One eye is cold glass.",
+            "Scars: Glass Eye — One eye is cold glass.",
         ]
 
     def test_case_describes_active_file(self, backend):
@@ -136,7 +136,9 @@ class TestHandleMessage:
     @pytest.mark.parametrize("command", ["investigate", "interview", "force", "ritual"])
     def test_action_commands_are_live(self, backend, command):
         replies = backend.handle_message("alice", None, f"!{command}")
-        assert len(replies) == 2
+        # An action always narrates attempt + result; it may append a clue or a
+        # danger omen after (both are legitimate extra beats), so allow trailers.
+        assert len(replies) >= 2
         assert replies[0].startswith("You ")
         assert replies[1].startswith(("SUCCESS —", "FAILURE —"))
         assert "remain today" in replies[1]

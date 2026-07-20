@@ -36,12 +36,17 @@ COMPLICATION_CHANCE = 0.05
 
 # Danger levels at which the Archivist lets the room feel it. Crossing the
 # last one makes the File bite: the acting investigator is scarred mid-File.
+# Tuned down from (4,8,12)/bite-12: under the old gentle stat spreads danger
+# rarely passed 7, so scars almost never landed. With the sharper class
+# spreads, off-class attempts fail far more and danger climbs — these lower
+# thresholds let the File actually bite, making scars the visible receipt the
+# game was missing.
 OMEN_THRESHOLDS: tuple[tuple[int, str], ...] = (
-    (4, "rising"),
-    (8, "high"),
-    (12, "critical"),
+    (3, "rising"),
+    (6, "high"),
+    (8, "critical"),
 )
-BITE_DANGER = 12
+BITE_DANGER = 8
 
 
 class RandomSource(Protocol):
@@ -148,6 +153,8 @@ class GameplayService:
                 raise RuntimeError("no active File to receive action outcome")
 
             extra_lines: list[str] = []
+            if success:
+                extra_lines.extend(self._clue_reveals())
             if action == "investigate":
                 extra_lines.extend(self._investigate_extras(success, danger_before))
             extra_lines.extend(self._danger_transition(player, danger_before))
@@ -189,6 +196,41 @@ class GameplayService:
         if roll == 6:
             return True
         return roll + effective >= STAT_CHECK_TARGET
+
+    def _clue_reveals(self) -> list[str]:
+        """The clues this success surfaces.
+
+        A File carries an ordered clue track (arc clues for a Sealed File, else
+        the theme's). The N clues are spread evenly across the hidden success
+        threshold, so the room assembles the little mystery as it works and the
+        last clue — written as the answer — lands as the File nears its close.
+        A File with no clue track (minimal packs) reveals nothing.
+        """
+        row = self._conn.execute(
+            "SELECT successes, success_threshold, theme_key, arc_key "
+            "FROM active_file WHERE id = 1"
+        ).fetchone()
+        if row is None:
+            return []
+        clues = self._file_clues(row["arc_key"], str(row["theme_key"]))
+        threshold = int(row["success_threshold"])
+        if not clues or threshold < 1:
+            return []
+        successes = int(row["successes"])
+        count = len(clues)
+        # Reveal any clue whose evenly-spaced boundary this success just crossed.
+        # count <= threshold, so at most one clue surfaces per action.
+        upto = min(successes * count // threshold, count)
+        already = (successes - 1) * count // threshold
+        return [clues[index] for index in range(already, upto)]
+
+    def _file_clues(self, arc_key, theme_key: str) -> tuple[str, ...]:
+        if arc_key is not None:
+            arc = self._content.meta_arcs.get(str(arc_key))
+            if arc is not None:
+                return arc.clues
+        theme = self._content.themes.get(theme_key)
+        return theme.clues if theme is not None else ()
 
     def _current_danger(self) -> int:
         row = self._conn.execute(
@@ -288,5 +330,11 @@ class GameplayService:
         elif outcome.confront_unlocked:
             lines.append(
                 "The Sealed File's final leaf unlocks. The Archive permits: !confront."
+            )
+            # State the stake plainly: a lost confrontation costs the Archive a
+            # relic and scars a reader. Fear is what brings the room back.
+            lines.append(
+                "Break the pattern and the Archive gives up a truth; fail it and "
+                "the sealed shelves keep what you came for."
             )
         return lines

@@ -16,6 +16,14 @@ hints = [
     "A name from an earlier File appears in the margin, crossed out twice.",
     "The Archivist finds a black index tab where none was filed.",
 ]
+clues = [
+    "The black tab was filed before any of you arrived. The ink is not yet dry.",
+    "Inside: a list of names, each crossed out exactly twice.",
+    "Your names are on it. Only one line each remains uncrossed.",
+    "The crossed names belong to readers the Archive no longer recalls having had.",
+    "This is not a list of the missing. It is a list of the kept.",
+    "The Index does not record who was lost. It records who agreed to stay.",
+]
 
 [meta_arcs.drowned_register]
 name = "The Drowned Register"
@@ -32,6 +40,14 @@ reward_description = "Remains dry even when the shelf around it is underwater."
 hints = [
     "The accession number matches a water-damaged File already closed.",
     "A line of damp fingerprints continues onto an older shelf.",
+]
+clues = [
+    "The folder is wet, but the water is warm, and it moves against the current.",
+    "Accession numbers surface and sink as you read, rearranging themselves.",
+    "One entry recurs at every depth: a File closed the night the vault first drowned.",
+    "The Register is not a record of the flood. It is what the flood was reading.",
+    "Every name it holds was signed in water, in a hand very like your own.",
+    "The tide behind the pages is not rising to reach you. It is turning a page.",
 ]
 
 [meta_arcs.folding_room]
@@ -50,6 +66,14 @@ hints = [
     "The floor plan repeats a corridor recorded in an earlier File.",
     "Two unrelated diagrams share the same impossible angle.",
 ]
+clues = [
+    "The File has no spine. It opens in four directions, and all four are inward.",
+    "A corridor from an earlier File is drawn here too, one degree further folded.",
+    "Step in and the room refiles you — you have always been on this landing.",
+    "The floor plan includes the reader. You are marked as a fixture.",
+    "The room is not a place the Archive holds. It is how the Archive holds you.",
+    "It was filed inside itself so nothing filed within could be checked out.",
+]
 
 [meta_arcs.standing_census]
 name = "The Standing Census"
@@ -66,6 +90,14 @@ reward_description = "Marks the one shelf the dust refuses to settle on."
 hints = [
     "The dust in an earlier File matches this one, grain for grain.",
     "A tally mark appears beside the count of closed Files. No one made it.",
+]
+clues = [
+    "The folder weighs more than its pages. Something inside keeps a tally.",
+    "The count rises by one each time you look away from it.",
+    "An earlier File's dust matches this one exactly — the same room, re-shelved.",
+    "The Census counts closed Files. Lately it has begun counting readers.",
+    "You are already entered. The mark beside your name is fresh.",
+    "It does not count to know how many. It counts to know when the number is complete.",
 ]
 
 [meta_arcs.facing_catalogue]
@@ -84,6 +116,14 @@ hints = [
     "A photograph from an earlier File now shows one figure more.",
     "The evidence cabinet's glass holds a reflection after the room empties.",
 ]
+clues = [
+    "The folder opens onto glass. Your reflections are already turning pages.",
+    "The catalogue lists Files by the readers who opened them — including this one.",
+    "A photograph gains a figure each time the evidence cabinet is closed.",
+    "The reflections have begun making notes you have not yet made.",
+    "The Catalogue is not read. It reads, and it files what it finds.",
+    "You did not open it. It opened you, and it liked the entry.",
+]
 
 [meta_arcs.borrowed_hour]
 name = "The Borrowed Hour"
@@ -100,4 +140,12 @@ reward_description = "Winds the Archive's clocks to agree, briefly, about now."
 hints = [
     "Two closed Files record the same minute twice.",
     "The reading-room clock chimes an hour the day does not contain.",
+]
+clues = [
+    "The folder is stamped out of order. Its minutes disagree about the hour.",
+    "Two closed Files record the same minute. Between them, an hour no one lived.",
+    "The reading-room clock chimes an hour the day cannot hold — and someone answered.",
+    "The borrowed hour is where the Archive keeps what it is not ready to return.",
+    "You have been inside it before. You will not recall until it is spent.",
+    "The hour was never missing. It was lent, and the Archive is calling it due.",
 ]

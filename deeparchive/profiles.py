@@ -52,13 +52,16 @@ class ProfileRepository:
             raise LookupError(f"investigator {player.id!r} no longer exists")
 
         scar_rows = self._conn.execute(
-            "SELECT description FROM scars WHERE player_id = ? "
+            "SELECT scar_key, description FROM scars WHERE player_id = ? "
             "ORDER BY acquired_at, id",
             (player.id,),
         ).fetchall()
         background = self._content.backgrounds.get(str(row["background_key"]))
         background_name = background.name if background is not None else "Unassigned"
-        scars = tuple(str(scar["description"]) for scar in scar_rows)
+        scars = tuple(
+            self._scar_label(str(scar["scar_key"]), str(scar["description"]))
+            for scar in scar_rows
+        )
         completed_files = int(row["completed_files"])
         return Profile(
             player=player,
@@ -73,6 +76,17 @@ class ProfileRepository:
                 self._content, player.id, completed_files, bool(scars)
             ),
         )
+
+    def _scar_label(self, scar_key: str, description: str) -> str:
+        """Lead with the scar's name so a marked investigator reads as marked.
+
+        The name is the source of truth in content; the DB description is a
+        historical snapshot. Fall back to the snapshot if the key is unknown.
+        """
+        scar = self._content.scars.get(scar_key)
+        if scar is None:
+            return description
+        return f"{scar.name} — {description}"
 
 
 def render_profile(profile: Profile) -> list[str]:

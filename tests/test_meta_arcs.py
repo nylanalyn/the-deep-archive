@@ -172,3 +172,37 @@ def test_confront_before_evidence_does_not_consume_action(
     )
     assert "needs more evidence" in service.confront(player)[0]
     assert ledger.allowance(player.id).used == 0
+
+
+def test_reveal_next_truth_advances_in_order_then_stops(migrated_conn) -> None:
+    content = load_content()
+    meta = MetaArcService(migrated_conn, content, Rng(1))
+    spine = content.fragments.archive_truths["spine"]
+    revealed = [meta.reveal_next_truth() for _ in range(len(spine))]
+    assert revealed == list(spine)
+    # The spine is finite: once spent, no further truths, counter parked.
+    assert meta.reveal_next_truth() is None
+    assert meta.state()["truths_revealed"] == len(spine)
+
+
+def test_boss_victory_speaks_the_next_truth(
+    migrated_conn, background_assigner
+) -> None:
+    content, player = _ready_sealed(migrated_conn, background_assigner)
+    second = IdentityResolver(migrated_conn, background_assigner).resolve_identity(
+        "bob", None
+    )
+    service = _confrontation(migrated_conn, content, die=6)
+    service.confront(player)  # win 1 of 2 — arc still open
+    lines = service.confront(second)  # win 2 of 2 — victory
+    spine = content.fragments.archive_truths["spine"]
+    assert f"The Archive admits, this once: {spine[0]}" in lines
+
+
+def test_pending_confront_narrates_the_running_tally(
+    migrated_conn, background_assigner
+) -> None:
+    content, player = _ready_sealed(migrated_conn, background_assigner)
+    service = _confrontation(migrated_conn, content, die=6)
+    lines = service.confront(player)  # one win, not yet decided
+    assert any("The final leaf stands at 1 of 2" in line for line in lines)

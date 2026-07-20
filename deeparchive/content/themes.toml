@@ -25,6 +25,14 @@ locations = [
 title_parts = { prefix = ["The Quiet", "The Drowned", "The Hollow", "The Last"], noun = ["Lantern", "Vigil", "Stairwell", "Catalogue", "Reading"], suffix = ["of Stairwell B", "in the East Wing", "before Dawn"] }
 dispositions = { interview = -1, ritual = 1 }
 approach_hint = "A note in the margin: testimony fails where the lamps do. The old rites carry their own light."
+clues = [
+    "The lamps here were filled last week. Every reservoir is bone-dry.",
+    "A reader signed the register at 2 a.m. The Archive keeps no 2 a.m. that night.",
+    "Wax pooled on the floor points inward, toward a shelf that isn't on the plan.",
+    "Behind the shelf: a reading room the catalogue never admitted existed.",
+    "The dark in that room is not the absence of light. It is something kept.",
+    "It was never waiting to be lit. It was waiting to be read back.",
+]
 
 [themes.flood]
 name = "Flood"
@@ -37,6 +45,14 @@ locations = [
 title_parts = { prefix = ["The Rising", "The Sunken", "The Brackish"], noun = ["Tide", "Basement", "Pipe", "Cistern", "Archive"], suffix = ["beneath the Archive", "after the Rains"] }
 dispositions = { force = -1, interview = 1 }
 approach_hint = "A note in the margin: the water resents being pushed. Someone dry watched it rise — find them."
+clues = [
+    "The waterline is level to the millimetre. No tide settles that evenly.",
+    "One chair sits dry in the flooded room, worn smooth by long sitting.",
+    "The accession ledger is soaked through, but one name stayed dry and legible.",
+    "That name signed out a File the night the sub-level first flooded.",
+    "They did not drown here. They stayed to watch the water finish something.",
+    "The flood is not rising. It is returning to a level it once knew.",
+]
 
 [themes.geometry]
 name = "Geometry"
@@ -49,6 +65,14 @@ locations = [
 title_parts = { prefix = ["The Impossible", "The Folded", "The Recursive"], noun = ["Corridor", "Angle", "Room", "Stairwell", "Hall"], suffix = ["behind the Map Room", "that Should Not Be"] }
 dispositions = { force = -1, ritual = 1 }
 approach_hint = "A note in the margin: the room does not yield to shoulders. It yields to the old measures."
+clues = [
+    "The corridor turns left twice and returns you further from the door.",
+    "Two floor plans, filed decades apart, share one impossible angle.",
+    "Chalk marks on the skirting are a surveyor's — abandoned mid-measure.",
+    "Whoever measured this room stopped when the numbers began to agree.",
+    "The room is not built wrong. It is folded, and something sleeps in the fold.",
+    "The angle was never an error. It is a door, and it has been left ajar.",
+]
 
 [themes.dust]
 name = "Dust"
@@ -62,6 +86,14 @@ locations = [
 title_parts = { prefix = ["The Grey", "The Unswept", "The Settled", "The Patient"], noun = ["Gallery", "Ledger", "Season", "Inventory", "Shroud"], suffix = ["of the Closed Stacks", "under Sheet and Sign", "since the Last Census"] }
 dispositions = { interview = -1, force = 1 }
 approach_hint = "A note in the margin: everyone who could answer is long past answering. Bring a crowbar, not a notebook."
+clues = [
+    "Dust lies thick on every surface but one narrow, swept path.",
+    "The path leads to a cabinet whose lock was forced from the inside.",
+    "A tally is scratched into the shelf's edge — more marks than there are Files.",
+    "The count matches the dust: one mark for every year no one came.",
+    "Something in the closed stacks has been keeping count of the silence.",
+    "It is not waiting to be found. It is waiting to be counted among us.",
+]
 
 [themes.mirrors]
 name = "Mirrors"
@@ -75,6 +107,14 @@ locations = [
 title_parts = { prefix = ["The Facing", "The Doubled", "The Silvered", "The Opposite"], noun = ["Reader", "Corridor", "Portrait", "Inventory", "Gaze"], suffix = ["in the Blackened Glass", "across the Hall", "that Blinks First"] }
 dispositions = { force = -1, ritual = 1 }
 approach_hint = "A note in the margin: do not put your hands on the glass. Bind it — every witness here lies twice."
+clues = [
+    "The glass holds the room a half-second after the room goes still.",
+    "A photograph in the File shows the reading room, and one figure too many.",
+    "Every mirror on this floor faces another. None faces a wall.",
+    "The reflections agree on everything except who is doing the reading.",
+    "Do not correct them. The glass keeps whichever version blinks first.",
+    "The Archive did not hang these mirrors. They are how it looks back.",
+]
 
 [themes.clocks]
 name = "Clocks"
@@ -88,3 +128,11 @@ locations = [
 title_parts = { prefix = ["The Borrowed", "The Unwound", "The Eleventh", "The Counted"], noun = ["Hour", "Pendulum", "Chime", "Interval", "Winter"], suffix = ["at Closing Time", "between Ticks", "that Struck Twice"] }
 dispositions = { ritual = -1, interview = 1 }
 approach_hint = "A note in the margin: ceremony only winds it further. The hours keep witnesses — ask them."
+clues = [
+    "Every clock on the landing reads a different minute. None reads the true one.",
+    "The winding-room log skips an hour the day itself does not contain.",
+    "A reader was signed in and out within that same missing hour.",
+    "The pendulum swings true, yet the room stays four minutes behind the hall.",
+    "The lost hour is not gone. It is filed, and it is accruing.",
+    "The Archive keeps time the way it keeps everything: it does not give it back.",
+]

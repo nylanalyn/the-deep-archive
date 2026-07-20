@@ -189,9 +189,9 @@ def test_crossing_danger_threshold_emits_omen(
     migrated_conn, background_assigner
 ) -> None:
     player, _, gameplay = _setup(migrated_conn, FixedRng(die=2), background_assigner)
-    migrated_conn.execute("UPDATE active_file SET danger = 3 WHERE id = 1")
+    migrated_conn.execute("UPDATE active_file SET danger = 2 WHERE id = 1")
     migrated_conn.commit()
-    outcome = gameplay.perform(player, "force")  # fail: danger 3 -> 5, crosses 4
+    outcome = gameplay.perform(player, "force")  # fail: danger 2 -> 4, crosses 3
     assert outcome is not None and not outcome.success
     assert len(outcome.extra_lines) == 1
 
@@ -200,9 +200,9 @@ def test_critical_danger_bites_the_acting_investigator(
     migrated_conn, background_assigner
 ) -> None:
     player, _, gameplay = _setup(migrated_conn, FixedRng(die=2), background_assigner)
-    migrated_conn.execute("UPDATE active_file SET danger = 11 WHERE id = 1")
+    migrated_conn.execute("UPDATE active_file SET danger = 7 WHERE id = 1")
     migrated_conn.commit()
-    outcome = gameplay.perform(player, "force")  # fail: danger 11 -> 13
+    outcome = gameplay.perform(player, "force")  # fail: danger 7 -> 9, bites at 8
     assert outcome is not None and not outcome.success
     assert any("The File bites" in line for line in outcome.extra_lines)
     scar_count = migrated_conn.execute(
@@ -319,3 +319,82 @@ def test_disposition_softens_and_sharpens_danger(
     danger = migrated_conn.execute("SELECT danger FROM active_file").fetchone()[0]
     assert outcome is not None and not outcome.success
     assert danger == 3
+
+
+def test_clues_reveal_in_order_across_threshold(
+    migrated_conn, background_assigner
+) -> None:
+    # A theme's ordered clue track surfaces one clue at a time, evenly spread
+    # across the hidden threshold, ending on the completing success.
+    _, _, gameplay = _setup(migrated_conn, FixedRng(die=4), background_assigner)
+    darkness = load_content().themes["darkness"]
+    migrated_conn.execute(
+        "UPDATE active_file SET theme_key = 'darkness', success_threshold = 12 "
+        "WHERE id = 1"
+    )
+    revealed: list[str] = []
+    for successes in range(1, 13):
+        migrated_conn.execute(
+            "UPDATE active_file SET successes = ? WHERE id = 1", (successes,)
+        )
+        revealed.extend(gameplay._clue_reveals())
+    assert revealed == list(darkness.clues)
+    # The last clue (the "aha") lands on the final, completing success.
+    migrated_conn.execute("UPDATE active_file SET successes = 12 WHERE id = 1")
+    assert gameplay._clue_reveals() == [darkness.clues[-1]]
+
+
+def test_sealed_file_prefers_arc_clues(migrated_conn, background_assigner) -> None:
+    # A Sealed File reveals its arc's clues, not the underlying theme's.
+    _, _, gameplay = _setup(migrated_conn, FixedRng(die=4), background_assigner)
+    content = load_content()
+    arc = content.meta_arcs["black_index"]
+    migrated_conn.execute(
+        "UPDATE active_file SET theme_key = 'darkness', arc_key = 'black_index', "
+        "success_threshold = 6, successes = 1 WHERE id = 1"
+    )
+    assert gameplay._clue_reveals() == [arc.clues[0]]
+    assert arc.clues[0] not in content.themes["darkness"].clues
+
+
+def test_clueless_theme_reveals_nothing(migrated_conn, background_assigner) -> None:
+    # The test harness detaches the File onto a themeless 'neutral' key; a File
+    # with no clue track simply reveals nothing.
+    _, _, gameplay = _setup(migrated_conn, FixedRng(die=4), background_assigner)
+    migrated_conn.execute("UPDATE active_file SET successes = 3 WHERE id = 1")
+    assert gameplay._clue_reveals() == []
+
+
+def test_success_emits_clue_in_action_output(
+    migrated_conn, background_assigner
+) -> None:
+    # A real successful action surfaces the clue in the outcome's extra lines.
+    player, _, gameplay = _setup(migrated_conn, FixedRng(die=4), background_assigner)
+    darkness = load_content().themes["darkness"]
+    migrated_conn.execute(
+        "UPDATE active_file SET theme_key = 'darkness', success_threshold = 6 "
+        "WHERE id = 1"
+    )
+    migrated_conn.commit()
+    # Darkness favours ritual (+1), so a 4 clears the target and reveals clue 1.
+    outcome = gameplay.perform(player, "ritual")
+    assert outcome is not None and outcome.success
+    assert darkness.clues[0] in outcome.extra_lines
+
+
+def test_unlocking_action_states_the_confront_stake(
+    migrated_conn, background_assigner
+) -> None:
+    # The action that carries a Sealed File's evidence to the threshold unlocks
+    # !confront and states the stake once, at that moment.
+    player, _, gameplay = _setup(migrated_conn, FixedRng(die=4), background_assigner)
+    migrated_conn.execute(
+        "UPDATE active_file SET is_sealed = 1, theme_key = 'darkness', "
+        "success_threshold = 1, successes = 0 WHERE id = 1"
+    )
+    migrated_conn.commit()
+    outcome = gameplay.perform(player, "ritual")  # darkness favours ritual (+1)
+    assert outcome is not None and outcome.confront_unlocked
+    rendered = gameplay.render(outcome)
+    assert any("!confront" in line for line in rendered)
+    assert any("sealed shelves keep what you came for" in line for line in rendered)
