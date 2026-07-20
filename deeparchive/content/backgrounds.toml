@@ -1,31 +1,42 @@
 # Personnel backgrounds assigned when an investigator is first catalogued.
+#
+# Spreads are deliberately sharp: a class is genuinely good at its approach and
+# genuinely bad at another, so a hard File needs the right person at the desk.
+# Nothing is ever guaranteed — a natural 1 always fails and a natural 6 always
+# succeeds, so even a −1 stat clears roughly one roll in six.
+#
+# Assignment is a no-duplicate rotation over the non-rare classes (see
+# backgrounds.py); `weight` is retained for compatibility but no longer used.
+# `rare = true` lifts a class out of the rotation so it only appears on long
+# odds.
 
 [backgrounds.archivist]
 name = "Archivist"
 description = "Records, clues, and catalogues have taught you what to notice."
 weight = 5
-stats = { wit = 2, strength = 0, occultism = 1 }
+stats = { wit = 3, strength = -1, occultism = 1 }
 
 [backgrounds.occultist]
 name = "Occultist"
 description = "You recognize symbols that should have remained anonymous."
 weight = 5
-stats = { wit = 1, strength = 0, occultism = 2 }
+stats = { wit = 1, strength = -1, occultism = 3 }
 
 [backgrounds.custodian]
 name = "Custodian"
 description = "You know which doors stick and where the pipes begin to whisper."
 weight = 5
-stats = { wit = 0, strength = 2, occultism = 1 }
+stats = { wit = -1, strength = 3, occultism = 1 }
 
 [backgrounds.skeptic]
 name = "Skeptic"
 description = "Disbelief is poor armor, but you have learned to wear it well."
 weight = 4
-stats = { wit = 2, strength = 1, occultism = 0 }
+stats = { wit = 2, strength = 2, occultism = -1 }
 
 [backgrounds.gambler]
 name = "Gambler"
 description = "You have survived by knowing when the odds are lying."
 weight = 1
+rare = true
 stats = { wit = 1, strength = 1, occultism = 1 }

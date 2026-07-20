@@ -140,6 +140,9 @@ class ResolutionService:
                 reward = self._meta.victory_reward(arc_key, history_id)
                 if reward:
                     lines.append(f"The Archive accepts a permanent addition: {reward}.")
+                truth = self._meta.reveal_next_truth()
+                if truth:
+                    lines.append(f"The Archive admits, this once: {truth}")
             else:
                 stolen = self._meta.steal_relic()
                 if stolen:

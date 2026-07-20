@@ -84,6 +84,19 @@ Players receive five actions per day by default.
 
 The day boundary is a single configurable timezone for the whole bot. Default is UTC.
 
+## Backgrounds
+
+Each investigator is catalogued with a background (class) that sets their
+initial stat spread. Spreads are deliberately sharp: a class is genuinely good
+at one approach and genuinely bad at another, so a hard File needs the right
+person at the desk. Nothing is guaranteed — a natural 1 always fails and a
+natural 6 always succeeds, so even a −1 stat clears roughly one roll in six.
+
+Assignment is a no-duplicate rotation: the least-held common background wins,
+so a small channel ends up with distinct classes rather than a pile of the
+same one. Rare backgrounds (the Gambler) sit outside the rotation and only
+surface on their own long odds.
+
 ## Actions
 
 !investigate
@@ -154,6 +167,12 @@ Archive remembers is how agitated the File became.
 !case never shows numbers, but it does describe how far along the File feels
 (a progress band derived from successes against the hidden threshold) and
 carries the theme's approach hint.
+
+Each File (and each Sealed File) carries an ordered clue track in content. A
+success reveals the next clue, the N clues spread evenly across the hidden
+threshold so the room assembles the File's small mystery as it works and the
+last clue — written as the answer — lands as the File nears its close. A File
+with no clue track simply reveals nothing.
 
 Immediately after resolution, a new File is created. Resolution lines
 occasionally cross-reference older closed Files by title, and good closes
@@ -237,9 +256,18 @@ Meta-arcs remain hidden until their pattern becomes visible:
 
 The confrontation is communal: each investigator may face the Sealed File
 once per day (spending an action), and the arc resolves when either side
-reaches two results. A defeat lands as a full Disaster.
+reaches two results. A defeat lands as a full Disaster. When the final leaf
+unlocks, the stake is stated plainly, and each confront narrates the running
+tally so the fight reads as a fight, not a silent counter.
 
-Boss victories permanently enrich the Archive.
+A Sealed File is a rung, not a ceiling. Each boss victory reveals the next
+line of the Archive-truth spine — a finite, ordered secret about what the
+Archive is, revealed one line at a time and never any other way. This is the
+game's macro-thread: there is always a next truth to reach.
+
+Boss victories permanently enrich the Archive and visibly change it: the
+Archive reads through successive "eras" keyed to how many Sealed Files the
+room has broken (see `!room`).
 
 Boss defeats steal relics, alter scars, and return the world to uneasy normality until another arc awakens.
 

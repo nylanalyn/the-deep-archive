@@ -1,4 +1,4 @@
-"""Weighted investigator background assignment."""
+"""No-duplicate investigator background assignment."""
 
 from __future__ import annotations
 
@@ -6,6 +6,20 @@ from deeparchive.backgrounds import BackgroundAssigner
 from deeparchive.content import load_content
 from deeparchive.identity import IdentityResolver
 from deeparchive.rng import Rng
+
+
+class FakeRng:
+    """Deterministic stand-in: control the rare roll and the pool pick."""
+
+    def __init__(self, *, rare_roll: bool = False, pick: int = 0) -> None:
+        self.rare_roll = rare_roll
+        self.pick = pick
+
+    def chance(self, _probability: float) -> bool:
+        return self.rare_roll
+
+    def choice(self, seq):
+        return seq[self.pick]
 
 
 def test_shipped_background_weights() -> None:
@@ -54,3 +68,36 @@ def test_existing_unassigned_player_is_backfilled(migrated_conn) -> None:
         "SELECT background_key FROM players WHERE id = 'old'"
     ).fetchone()
     assert row["background_key"] != "unassigned"
+
+
+def test_rotation_assigns_distinct_classes_until_pool_cycles() -> None:
+    # With the rare roll suppressed, the first four investigators each get a
+    # different common class; the fifth begins the next cycle.
+    assigner = BackgroundAssigner(load_content(), FakeRng(rare_roll=False, pick=0))
+    counts: dict[str, int] = {}
+    picks: list[str] = []
+    for _ in range(5):
+        chosen = assigner.choose(counts)
+        picks.append(chosen.key)
+        counts[chosen.key] = counts.get(chosen.key, 0) + 1
+    assert len(set(picks[:4])) == 4  # four distinct classes, no duplicates
+    assert "gambler" not in picks  # rare stays out of the rotation
+    assert picks[4] == picks[0]  # the pool cycles once each class is held
+
+
+def test_gambler_excluded_from_rotation_but_surfaces_on_rare_roll() -> None:
+    content = load_content()
+    # Rare roll never fires: the Gambler is never handed out, at any count.
+    common_only = BackgroundAssigner(content, FakeRng(rare_roll=False, pick=0))
+    for _ in range(20):
+        assert common_only.choose({}).key != "gambler"
+    # Rare roll fires: the Gambler is the only rare class, so it is chosen.
+    rare = BackgroundAssigner(content, FakeRng(rare_roll=True, pick=0))
+    assert rare.choose({}).key == "gambler"
+
+
+def test_least_held_class_wins() -> None:
+    assigner = BackgroundAssigner(load_content(), FakeRng(rare_roll=False, pick=0))
+    # Everyone is an archivist so far; the next hire must not be another.
+    chosen = assigner.choose({"archivist": 3})
+    assert chosen.key != "archivist"

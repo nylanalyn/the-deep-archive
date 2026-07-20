@@ -70,6 +70,25 @@ class MetaArcService:
         state["active_arc"] = None
         self._save(state)
 
+    def reveal_next_truth(self) -> str | None:
+        """Surface the next line of the Archive-truth spine, or None if spent.
+
+        Called once per boss victory. The spine is the game's macro-thread: a
+        finite, ordered secret that only advances when the room breaks a Sealed
+        File, so there is always a reason to reach the next one. Progress is
+        kept in the ``meta_arc_state`` blob — no schema change.
+        """
+        spine = self._content.fragments.archive_truths.get("spine", ())
+        if not spine:
+            return None
+        state = self._load()
+        index = int(state.get("truths_revealed", 0))
+        if index >= len(spine):
+            return None
+        state["truths_revealed"] = index + 1
+        self._save(state)
+        return spine[index]
+
     def victory_reward(self, arc_key: str, history_id: int) -> str | None:
         arc = self._content.meta_arcs.get(arc_key)
         if arc is None:

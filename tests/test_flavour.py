@@ -65,3 +65,19 @@ def test_personnel_title_history_categories() -> None:
     assert personnel_title(content, "p", 0, False) in content.fragments.personnel_titles["new"]
     assert personnel_title(content, "p", 5, False) in content.fragments.personnel_titles["veteran"]
     assert personnel_title(content, "p", 0, True) in content.fragments.personnel_titles["marked"]
+
+
+def test_room_shifts_era_after_boss_victory(migrated_conn) -> None:
+    content = load_content()
+    migrated_conn.execute(
+        "INSERT INTO meta_arc_state (id, state_json) VALUES (1, ?)",
+        ('{"victories": {"black_index": 1}, "defeats": {}, '
+         '"counts": {}, "active_arc": null}',),
+    )
+    # A relic exists too, but the era bucket takes precedence over reliquary.
+    migrated_conn.execute(
+        "INSERT INTO relics (relic_key, description) VALUES ('lamp', 'steady')"
+    )
+    migrated_conn.commit()
+    lines = ArchiveFlavourService(migrated_conn, content, Rng(2)).describe()
+    assert lines[0] in content.fragments.archive_descriptions["era_1"]

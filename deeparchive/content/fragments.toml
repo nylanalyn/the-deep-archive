@@ -85,6 +85,24 @@ reliquary = [
     "A locked cabinet stands among the shelves. Its contents have earned their silence.",
     "The reliquary case has been dusted. Not by staff.",
 ]
+# Eras: the Archive reads differently after each Sealed File the room breaks.
+# ArchiveFlavourService selects era_N by the count of boss victories (capped),
+# so the world visibly changes as the arc advances.
+era_1 = [
+    "Something in the Archive has shifted its weight. The shelves stand a little straighter.",
+    "A door that was always there now stands slightly open. No draft comes through it.",
+    "The catalogue has been re-sorted overnight, by a hand that skipped the usual order.",
+]
+era_2 = [
+    "Whole aisles have gone quiet in a way that feels chosen. The Archive is listening back.",
+    "The reading lamps burn a colour they did not before — nearer daylight, and colder.",
+    "Shelves have drawn back around a space kept deliberately empty. Nothing is filed there yet.",
+]
+era_3 = [
+    "The Archive no longer pretends to be only a library. The walls keep a respectful distance.",
+    "Every reflective surface has been turned to face the same unlit corridor.",
+    "The stacks have opened a path on no plan, and it waits with the patience of a held breath.",
+]
 
 [room_weather]
 default = [
@@ -283,4 +301,20 @@ default = [
     "The Archivist winds the clock that still consents to run. A new day is open.",
     "The doors unlock themselves at the appointed hour. The Archive resumes.",
     "The overnight returns have been shelved. The day's first lamp is lit.",
+]
+
+[archive_truths]
+# The spine of the whole game: one line surfaced each time the room breaks a
+# Sealed File, in order, building toward what the Archive actually is. These
+# are PLACEHOLDER lore — rewrite freely; the machinery just speaks spine[N]
+# on the Nth boss victory. Keep them ordered from first-given to final-truth.
+spine = [
+    "The first truth, freely given: the Archive was not built to keep books. The books came later, as cover.",
+    "It keeps readers. Every File you close files a little more of you in return.",
+    "The scars are not wounds. They are catalogue marks. You have been indexed.",
+    "No one staffs the Archive. 'The Archivist' is a role it wears, and the role is always filled from within.",
+    "The doors have not been locked in a very long time. They have simply stopped leading out.",
+    "Every investigator who reached this depth is already on the black index, their names crossed twice.",
+    "You are not solving the Archive. You are being read by it, one File at a time.",
+    "The last truth, and the Archive's alone to give: it does not want to keep you. It has only forgotten how to let go.",
 ]

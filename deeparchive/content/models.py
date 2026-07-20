@@ -127,13 +127,21 @@ class StatModifier:
 
 @dataclass(frozen=True, slots=True)
 class BackgroundDefinition:
-    """A weighted personnel background and its initial stat spread."""
+    """A personnel background and its initial stat spread.
+
+    Assignment (``BackgroundAssigner``) draws non-``rare`` backgrounds by a
+    no-duplicate rotation so a small channel gets distinct classes; ``rare``
+    backgrounds sit outside the rotation and only surface on their own long
+    odds. ``weight`` is retained for content compatibility but no longer drives
+    assignment.
+    """
 
     key: str
     name: str
     description: str
     weight: int
     stats: dict[str, int]
+    rare: bool = False
 
     @classmethod
     def from_dict(cls, key: str, raw: dict[str, Any]) -> "BackgroundDefinition":
@@ -141,6 +149,9 @@ class BackgroundDefinition:
         description = raw.get("description")
         weight = raw.get("weight")
         stats = raw.get("stats")
+        rare = raw.get("rare", False)
+        if not isinstance(rare, bool):
+            raise ContentError(f"background {key!r}: rare must be a boolean")
         if not isinstance(name, str) or not name:
             raise ContentError(f"background {key!r}: name must be a non-empty string")
         if not isinstance(description, str) or not description:
@@ -161,6 +172,7 @@ class BackgroundDefinition:
             description=description,
             weight=weight,
             stats={stat: int(stats[stat]) for stat in VALID_STATS},
+            rare=rare,
         )
 
 
@@ -181,6 +193,9 @@ class MetaArcDefinition:
     reward_name: str
     reward_description: str
     hints: tuple[str, ...]
+    # A Sealed File's own escalating clue track, revealed per success like a
+    # theme's clues. Empty is valid (the boss simply reveals nothing mid-File).
+    clues: tuple[str, ...] = field(default_factory=tuple)
 
     @classmethod
     def from_dict(cls, key: str, raw: dict[str, Any]) -> "MetaArcDefinition":
@@ -206,12 +221,16 @@ class MetaArcDefinition:
         hints = _parse_string_list(
             raw.get("hints", []), f"meta arc {key!r}", field_name="hints", non_empty=True
         )
+        clues = _parse_string_list(
+            raw.get("clues", []), f"meta arc {key!r}", field_name="clues"
+        )
         return cls(
             key=key,
             trigger_count=trigger,
             threshold=threshold,
             tags=tags,
             hints=hints,
+            clues=clues,
             **values,
         )
 
@@ -358,6 +377,11 @@ class ThemeDefinition:
     # while a File of this theme is active. approach_hint telegraphs them.
     dispositions: dict[str, int] = field(default_factory=dict)
     approach_hint: str | None = None
+    # Ordered clue fragments. The Nth success on a File of this theme reveals
+    # clues[N-1], so the room assembles a small mystery as it works. An empty
+    # list simply reveals nothing (minimal test packs stay valid). Write the
+    # last entry as the "aha" so the File resolving reads as the answer.
+    clues: tuple[str, ...] = field(default_factory=tuple)
 
     @classmethod
     def from_dict(cls, key: str, raw: dict[str, Any]) -> "ThemeDefinition":
@@ -393,6 +417,10 @@ class ThemeDefinition:
                 field_name=f"title_parts.{part_name}",
                 non_empty=True,
             )
+
+        clues = _parse_string_list(
+            raw.get("clues", []), f"theme {key!r}", field_name="clues"
+        )
 
         raw_dispositions = raw.get("dispositions", {})
         if not isinstance(raw_dispositions, dict):
@@ -430,6 +458,7 @@ class ThemeDefinition:
             title_parts=title_parts,
             dispositions=dispositions,
             approach_hint=approach_hint,
+            clues=clues,
         )
 
 
@@ -468,6 +497,8 @@ class FragmentLibrary:
     history_echoes: dict[str, tuple[str, ...]] = field(default_factory=dict)
     participant_echoes: dict[str, tuple[str, ...]] = field(default_factory=dict)
     day_heartbeats: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    # The ordered Archive-truth spine, revealed one line per boss victory.
+    archive_truths: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "FragmentLibrary":
@@ -506,6 +537,7 @@ class FragmentLibrary:
             history_echoes=parse_section("history_echoes"),
             participant_echoes=parse_section("participant_echoes"),
             day_heartbeats=parse_section("day_heartbeats"),
+            archive_truths=parse_section("archive_truths"),
         )
 
 
